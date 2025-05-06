@@ -6,6 +6,7 @@ class launch_page extends StatefulWidget {
   @override
   State<launch_page> createState() => _launch_pageState();
 }
+//final launch page
 
 class _launch_pageState extends State<launch_page> {
   @override
