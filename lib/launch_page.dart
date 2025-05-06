@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'signup.dart';
 import 'login.dart';
-
+//final launch page by satvik
 class launch_page extends StatefulWidget {
   @override
   State<launch_page> createState() => _launch_pageState();
 }
-//final launch page
 
 class _launch_pageState extends State<launch_page> {
   @override
@@ -23,10 +22,14 @@ class _launch_pageState extends State<launch_page> {
                 child: Image.asset('assets/HOME SCREEN 1.png',
                   fit: BoxFit.cover,),
               ),
-              Container(
-                padding: EdgeInsets.fromLTRB(0,400, 0, 50),
-                child : Center(
-                  child: ElevatedButton(
+              Align(
+                alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding:EdgeInsets.only(bottom: 60),
+                  child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                    children: [
+                    ElevatedButton(
                     onPressed: ()
                     {
                       Navigator.push(context,
@@ -38,7 +41,7 @@ class _launch_pageState extends State<launch_page> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)
                       ),
-                      padding: EdgeInsets.symmetric(vertical:18.0,horizontal: 80),
+                      padding: EdgeInsets.symmetric(vertical:18.0,horizontal: 60),
                       elevation: 8,
                     ),
                     child: Text('Get Started',
@@ -51,12 +54,9 @@ class _launch_pageState extends State<launch_page> {
                       ),
                     ),
                   ),
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.fromLTRB(0,600, 0, 50),
-                child : Center(
-                  child: ElevatedButton(
+              Padding(
+                  padding:EdgeInsets.only(top:30),
+              child:ElevatedButton(
                     onPressed: ()
                     {
                       Navigator.push(context,
@@ -68,7 +68,7 @@ class _launch_pageState extends State<launch_page> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)
                       ),
-                      padding: EdgeInsets.symmetric(vertical:18.0,horizontal: 104),
+                      padding: EdgeInsets.symmetric(vertical:18.0,horizontal: 86),
                       elevation: 8,
                     ),
                     child: Text('Log In',
@@ -81,8 +81,11 @@ class _launch_pageState extends State<launch_page> {
                       ),
                     ),
                   ),
-                ),
               ),
+                ]
+              ),
+              ),
+                ),
             ],
           ),
         ),
