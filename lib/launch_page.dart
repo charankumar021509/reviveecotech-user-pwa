@@ -22,70 +22,84 @@ class _launch_pageState extends State<launch_page> {
                 child: Image.asset('assets/HOME SCREEN 1.png',
                   fit: BoxFit.cover,),
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding:EdgeInsets.only(bottom: 60),
-                  child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                    children: [
-                    ElevatedButton(
-                    onPressed: ()
-                    {
-                      Navigator.push(context,
-                        MaterialPageRoute(builder: (context)=>signup()),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap:(){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=>signup()
+                      ),
                       );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF013D5A),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)
-                      ),
-                      padding: EdgeInsets.symmetric(vertical:18.0,horizontal: 60),
-                      elevation: 8,
+                  child:Container(
+                    height: 70,
+                    padding: EdgeInsets.symmetric(vertical: 18,horizontal: 100),
+                    margin: EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Color(0xFF013D5A),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black,
+                          offset: Offset(0, 6),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        )
+                        ]
                     ),
-                    child: Text('Get Started',
-                      style: TextStyle(
-                          fontFamily: 'RedHatDisplay',
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          fontSize: 18,
-                          color: Color(0xFFFCF3E3)
-                      ),
+                    child: Text("Get Started",
+                    style: TextStyle(
+                        fontFamily: 'RedHatDisplay',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        letterSpacing: 1.0,
+                        color: Color(0xFFFCF3E3)
+                    ),
                     ),
                   ),
-              Padding(
-                  padding:EdgeInsets.only(top:30),
-              child:ElevatedButton(
-                    onPressed: ()
-                    {
-                      Navigator.push(context,
-                        MaterialPageRoute(builder: (context)=>login()),
+                  ),
+                  GestureDetector(
+                    onTap: (){
+                      Navigator.push(context, 
+                        MaterialPageRoute(builder: (context)=>login()
+                        ),
                       );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFCF3E3),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)
+                    child: Container(
+                      height:70,
+                      padding: EdgeInsets.symmetric(vertical: 18 ,horizontal: 124),
+                      margin: EdgeInsets.only(bottom: 50),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFFCF3E3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Color(0xFF013D5A),
+                          width: 2.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black,
+                            blurRadius: 10,
+                            offset: Offset(0, 6),
+                            spreadRadius: 1.0,
+                          ),
+                        ],
                       ),
-                      padding: EdgeInsets.symmetric(vertical:18.0,horizontal: 86),
-                      elevation: 8,
-                    ),
-                    child: Text('Log In',
+                      child: Text("Login",
                       style: TextStyle(
-                          fontFamily: 'RedHatDisplay',
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          color: Color(0xFF013D5A)
+                        fontFamily: 'RedHatDisplay',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18.0,
+                        color: Color(0xFF013D5A),
+                      ),
                       ),
                     ),
-                  ),
+                  )
+                ],
               ),
-                ]
-              ),
-              ),
-                ),
+            )
             ],
           ),
         ),
