@@ -6,7 +6,6 @@ import 'signup.dart';
 class menu extends StatefulWidget {  @override
 State<menu> createState() => _menuState();
 }
-
 class _menuState extends State<menu> {
   @override
   Widget build(BuildContext context) {
