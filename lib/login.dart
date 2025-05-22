@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'otp_page.dart';
 
 class login extends StatefulWidget {
   @override
@@ -157,30 +158,67 @@ class _loginState extends State<login> {
                         ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-                          child: Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: Color(0xFFA6CB4E),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (context) => OtpPage()),
+                              );
+                            },
+                            child: Container(
+                              height: 60,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: Color(0xFFA6CB4E),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.5),
+                                    spreadRadius: 3,
+                                    blurRadius: 5,
+                                    offset: Offset(4, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    fontFamily: 'RedHatDisplay',
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFFCF3E3),
+                                    fontSize: 25,
+                                  ),
                                 ),
-                              ],
+                              ),
                             ),
-                            child: Center(child: Text('Login',
-                              style: TextStyle(
-                                fontFamily: 'RedHatDisplay',
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFFCF3E3),
-                                fontSize: 25,
-
-                              ),)),
                           ),
-                        )
+                        ),
+                        // Padding(
+                        //   padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                        //   child: Container(
+                        //     height: 60,
+                        //     decoration: BoxDecoration(
+                        //       borderRadius: BorderRadius.circular(12),
+                        //       color: Color(0xFFA6CB4E),
+                        //       boxShadow: [
+                        //         BoxShadow(
+                        //           color: Colors.black.withOpacity(0.5), // Shadow color
+                        //           spreadRadius: 3, // How far the shadow spreads
+                        //           blurRadius: 5, // Blurry effect
+                        //           offset: Offset(4, 4), // Position of shadow (x, y)
+                        //         ),
+                        //       ],
+                        //     ),
+                        //     child: Center(child: Text('Login',
+                        //       style: TextStyle(
+                        //         fontFamily: 'RedHatDisplay',
+                        //         fontWeight: FontWeight.bold,
+                        //         color: Color(0xFFFCF3E3),
+                        //         fontSize: 25,
+                        //
+                        //       ),)),
+                        //   ),
+                        // )
                       ],
                     ),
                   ),
