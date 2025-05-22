@@ -59,6 +59,9 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/home/
+    - assets/images/home/drives/
+    - assets/images/home/scraps/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
