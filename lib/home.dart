@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:revive_eco_tech_app/profile.dart';
 import 'widgets/pickup_tracker.dart';
 
 
@@ -177,10 +178,18 @@ class _HomePageState extends State<HomePage> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const CircleAvatar(
-                            radius: 23,
-                            backgroundColor: Color(0xFFa8ce4c),
-                            child: Icon(Icons.account_circle, color: kPrimaryColor, size: 45),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => profile()),
+                              );
+                            },
+                            child: const CircleAvatar(
+                              radius: 23,
+                              backgroundColor: Color(0xFFa8ce4c),
+                              child: Icon(Icons.account_circle, color: kPrimaryColor, size: 45),
+                            ),
                           ),
                           const SizedBox(width: 18),
                           Column(
