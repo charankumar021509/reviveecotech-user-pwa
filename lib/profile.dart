@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'history.dart';
 
 class profile extends StatefulWidget {
   @override
@@ -55,9 +56,10 @@ class _profileState extends State<profile> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(10, 20, 0, 0),
                             child: Container(
-                              child: CircleAvatar(
+                              child: const CircleAvatar(
                                 radius: 40,
-                                child: Icon(Icons.person, size: 40,color: Colors.lightGreenAccent,),
+                                backgroundColor: Color(0xFFa8ce4c),
+                                child: Icon(Icons.account_circle, color: Color(0xFFffffff), size: 80),
                               ),
                             ),
                           ),
@@ -206,6 +208,12 @@ class _profileState extends State<profile> {
               ),
             ),
             GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HistoryScreen()),
+                );
+              },
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                 child: Container(
@@ -218,30 +226,23 @@ class _profileState extends State<profile> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 0, 0),
-                        child: Container(
-                          child: Icon(Icons.history,size: 35,),
-                        ),
+                        child: Icon(Icons.history, size: 35),
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
-                        child: Container(
-                          child: Text('History',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20
-                            ),
+                        child: Text(
+                          'History',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
                           ),
                         ),
                       ),
                       Spacer(),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                        child: Container(
-                          child: Icon(Icons.arrow_forward_ios,size: 20,),
-                        ),
+                        child: Icon(Icons.arrow_forward_ios, size: 20),
                       ),
-
-
                     ],
                   ),
                 ),

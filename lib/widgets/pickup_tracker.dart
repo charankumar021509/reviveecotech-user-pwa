@@ -13,13 +13,21 @@ class PickupTracker extends StatelessWidget {
     "Pickup\ncompleted",
   ];
 
-  final List<String> iconAssets = const [
-    'assets/icons/pickup.png',
-    'assets/icons/truck.png',
-    'assets/icons/location.png',
-    'assets/icons/payment.png',
-    'assets/icons/completed.png',
+  final List<IconData> stepIcons = const [
+    Icons.event,        // Pickup scheduled timer
+    Icons.local_shipping, // On the way
+    Icons.location_on,  // Reached location
+    Icons.payment,      // Estimated & Paid
+    Icons.check_circle, // Pickup completed
   ];
+
+  // final List<String> iconAssets = const [
+  //   'assets/icons/pickup.png',
+  //   'assets/icons/truck.png',
+  //   'assets/icons/location.png',
+  //   'assets/icons/payment.png',
+  //   'assets/icons/completed.png',
+  // ];
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +67,7 @@ class PickupTracker extends StatelessWidget {
                             child: Container(
                               height: 4,
                               color: isCompleted
-                                  ? const Color(0xFF9ACD32)
+                                  ? const Color(0xFFa9c855)
                                   : Colors.grey[300],
                             ),
                           ),
@@ -69,7 +77,7 @@ class PickupTracker extends StatelessWidget {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isCompleted || isActive
-                                ? const Color(0xFF9ACD32)
+                                ? const Color(0xFFa9c855)
                                 : Colors.grey[300],
                             border: index == 4
                                 ? Border.all(
@@ -80,11 +88,12 @@ class PickupTracker extends StatelessWidget {
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(10.0),
-                            child: Image.asset(
-                              iconAssets[index],
+                            child: Icon(
+                              stepIcons[index],
                               color: isCompleted || isActive
                                   ? Colors.white
                                   : Colors.grey,
+                              //size: 28,
                             ),
                           ),
                         ),
@@ -93,7 +102,7 @@ class PickupTracker extends StatelessWidget {
                             child: Container(
                               height: 4,
                               color: index < currentStep - 1
-                                  ? const Color(0xFF9ACD32)
+                                  ? const Color(0xFFa9c855)
                                   : Colors.grey[300],
                             ),
                           ),

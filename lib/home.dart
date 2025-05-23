@@ -428,11 +428,11 @@ class ShortcutButton extends StatelessWidget {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: Colors.green[200],
+            color: const Color(0xFFa6cb56),
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.all(8),
-          child: Icon(icon, size: 28, color: Colors.green[900]),
+          child: Icon(icon, size: 28, color: Colors.white),
         ),
         const SizedBox(height: 3),
         Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
