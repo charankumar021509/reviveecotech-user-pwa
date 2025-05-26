@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:revive_eco_tech_app/pricelist.dart';
+import 'package:revive_eco_tech_app/setting.dart';
 import 'package:revive_eco_tech_app/profile.dart';
 import 'widgets/pickup_tracker.dart';
 
@@ -24,7 +26,9 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+
   @override
+
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Revive App',
@@ -144,7 +148,7 @@ class _HomePageState extends State<HomePage> {
       child: Image.asset(path, fit: BoxFit.cover, width: double.infinity),
     );
   }
-
+  int _CurrentIndex = 0;
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -381,9 +385,29 @@ class _HomePageState extends State<HomePage> {
         ),
 
         // ==== Bottom Nav ====
+
         bottomNavigationBar: BottomNavigationBar(
           backgroundColor: kGreenLight,
-          currentIndex: 0,
+          currentIndex: _CurrentIndex,
+          onTap: (index) {
+            if (index == 1) { // If "Market Rates" is clicked
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => pricelist()),
+              );
+            }
+            if (index == 2) { // If "Market Rates" is clicked
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => Settings()),
+              );
+            }else {
+              setState(() {
+                _CurrentIndex = index;
+              });
+            }
+          },
+
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.graphic_eq), label: 'Market Rates'),
@@ -479,6 +503,7 @@ class ImageCardScroller extends StatefulWidget {
 class _ImageCardScrollerState extends State<ImageCardScroller> {
   final PageController _controller = PageController(viewportFraction: 0.9);
   int _currentIndex = 0;
+
 
   @override
   Widget build(BuildContext context) {
