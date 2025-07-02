@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:revive_eco_tech_app/pricelist.dart';
 import 'package:revive_eco_tech_app/setting.dart';
 import 'package:revive_eco_tech_app/profile.dart';
+import 'Schedule_Pickup.dart';
 import 'widgets/pickup_tracker.dart';
 
 
@@ -317,14 +318,14 @@ class _HomePageState extends State<HomePage> {
                         icon: Icons.list,
                         label: 'Price List \n',
                         onTap: () {
-                          //Navigator.push(context, MaterialPageRoute(builder: (_) => PriceListPage()));
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => pricelist()));
                         },
                       ),
                       ShortcutButton(
                         icon: Icons.schedule,
                         label: 'Schedule \n Pick-up',
                         onTap: () {
-                          //Navigator.push(context, MaterialPageRoute(builder: (_) => SchedulePickupPage()));
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => SchedulePickup()));
                         },
                       ),
                       ShortcutButton(
