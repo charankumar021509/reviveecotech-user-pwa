@@ -306,7 +306,8 @@ class _HomePageState extends State<HomePage> {
               // ==== Shortcuts Grid ====
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
+                child: SizedBox(
+                  height: 120, // Define a fixed height
                   child: GridView.count(
                     crossAxisCount: 4,
                     crossAxisSpacing: 10,

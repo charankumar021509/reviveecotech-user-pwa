@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "967064516173",
+    "project_id": "reviveecotech-dfbed",
+    "storage_bucket": "reviveecotech-dfbed.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967064516173:android:c73c8d69216b1b947b0e04",
+        "android_client_info": {
+          "package_name": "com.revive_eco_tech_app.revive_eco_tech_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "967064516173-5mn50nkcsptr2dlutfp3e31itum9h70u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.revive_eco_tech_app.revive_eco_tech_app",
+            "certificate_hash": "864162b42e76b42fad57ea469278c8b8f12d3094"
+          }
+        },
+        {
+          "client_id": "967064516173-pcg6qg7uogg60jpf85pn0frokh1ge09d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD1R57gc79GhvQQs_g7GI038MgquHqY4Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "967064516173-pcg6qg7uogg60jpf85pn0frokh1ge09d.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "967064516173-v07m865uqnuf8v97ohefr77k1vs8l2mq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.reviveecotechapp.reviveEcoTechApp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

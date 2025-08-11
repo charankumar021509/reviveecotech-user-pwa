@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:revive_eco_tech_app/launch_page.dart';
 import 'package:revive_eco_tech_app/utilities/tiles.datrt.dart';
@@ -72,12 +73,18 @@ class _SettingsState extends State<Settings> {
                 Navigator.push(context, MaterialPageRoute(builder: (context)=>launch_page()));
               },
             ),
-            Tiles(tilename: 'Log Out',
+            Tiles(
+              tilename: 'Log Out',
               iconPath: Icons.logout,
-              onTap: (){
-                Navigator.push(context, MaterialPageRoute(builder: (context)=>launch_page()));
+              onTap: () async {
+                await FirebaseAuth.instance.signOut(); // ✅ Sign out from Firebase
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => launch_page()),
+                      (route) => false, // ✅ Remove all previous routes
+                );
               },
-            ),
+            )
           ],
         ),
       ),
