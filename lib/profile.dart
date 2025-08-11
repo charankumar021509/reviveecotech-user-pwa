@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:revive_eco_tech_app/leader_Board.dart';
 import 'history.dart';
 
 class profile extends StatefulWidget {
@@ -55,24 +56,25 @@ class _profileState extends State<profile> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(10, 20, 0, 0),
-                            child: Container(
-                              child: const CircleAvatar(
-                                radius: 40,
-                                backgroundColor: Color(0xFFa8ce4c),
-                                child: Icon(Icons.account_circle, color: Color(0xFFffffff), size: 80),
-                              ),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Color(0xFFa8ce4c),
+                              child: Icon(Icons.account_circle, color: Color(0xFFffffff), size: 80),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(10, 20, 0, 0),
-                            child: Container(
+                          Expanded( // Ensure the text column doesn't overflow
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 20, 0, 0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Shubham Ghosh', style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 20,
-                                  ),),
+                                  Text(
+                                    'Shubham Ghosh',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                    ),
+                                  ),
                                   Text('+91 1234567890'),
                                   Text('abc@gmail.com'),
                                   Text('14/91 Ram Krishna nagar ,New Delhi'),
@@ -80,7 +82,6 @@ class _profileState extends State<profile> {
                               ),
                             ),
                           ),
-
                         ],
                       ),
                     ),
@@ -94,14 +95,6 @@ class _profileState extends State<profile> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(5, 0, 20, 0),
-                                child: Row(
-                                  children: [
-
-                                  ],
-                                ),
-                              ),
                             ),
                           ),
                         ),
@@ -114,40 +107,27 @@ class _profileState extends State<profile> {
                                 borderRadius: BorderRadius.circular(12),
                                 color: Colors.lightGreenAccent,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(5, 0, 20, 0),
-                                child: Row(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(10, 0, 5, 0),
-                                      child: Container(
-                                        child: Icon(Icons.edit,
-                                          size: 30,
-                                        ),
-                                      ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center, // Center content
+                                children: [
+                                  Icon(Icons.edit, size: 30),
+                                  SizedBox(width: 5), // Add spacing between icon and text
+                                  Text(
+                                    'Edit Profile',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(5, 0, 0, 0),
-                                      child: Container(
-                                        child: Text('Edit Profile',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
-
                       ],
-                    )
+                    ),
                   ],
                 ),
-
               ),
             ),
             Padding(
@@ -333,6 +313,12 @@ class _profileState extends State<profile> {
               ),
             ),
             GestureDetector(
+              onTap: (){
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => LeaderBoard()),
+                );
+              },
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                 child: Container(

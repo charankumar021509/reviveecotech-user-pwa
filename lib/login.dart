@@ -1,19 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:revive_eco_tech_app/home.dart';
 import 'otp_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:revive_eco_tech_app/auth/google_auth.dart';
 
 class login extends StatefulWidget {
+  final int initialTabIndex;
+  const login({Key? key, this.initialTabIndex = 0}) : super(key: key);
   @override
   State<login> createState() => _loginState();
 }
 
+
 class _loginState extends State<login> {
+  final _loginFormKey = GlobalKey<FormState>();
+  final _signupFormKey = GlobalKey<FormState>();
+  bool _isLoginPasswordVisible = false;
+  bool _isSignupPasswordVisible = false;
+  bool _isSignupConfirmPasswordVisible = false;
+
+
+
+  final firebaseServices = FirebaseServices();
+
+  final TextEditingController _loginEmailController = TextEditingController();
+  final TextEditingController _loginPasswordController = TextEditingController();
+  final TextEditingController _signupEmailController = TextEditingController();
+  final TextEditingController _signupPasswordController = TextEditingController();
+  final TextEditingController _signupConfirmPasswordController = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
+      initialIndex: widget.initialTabIndex,
       child: Scaffold(
         backgroundColor: Color(0xFFFCF3E3),
-
         body: Column(
           children: [
             Container(
@@ -26,150 +48,115 @@ class _loginState extends State<login> {
               ),
             ),
             Container(
-
               decoration: BoxDecoration(
                 color: Color(0xFFFCF3E3),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.5), // Shadow color
-                    spreadRadius: 3, // How far the shadow spreads
-                    blurRadius: 5, // Blurry effect
-                    offset: Offset(4, 4), // Position of shadow (x, y)
+                    color: Colors.black.withOpacity(0.5),
+                    spreadRadius: 3,
+                    blurRadius: 5,
+                    offset: Offset(4, 4),
                   ),
                 ],
               ),
               child: TabBar(
                 tabs: [
-                  Tab(text: 'Login',),
+                  Tab(text: 'Login'),
                   Tab(text: 'Signup'),
                 ],
-
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicatorColor: Color(0xFF013D5A),
                 indicatorWeight: 3,
-                labelStyle: TextStyle(fontSize: 20,
+                labelStyle: TextStyle(
+                  fontSize: 20,
                   fontFamily: 'RedHatDisplay',
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF013D5A),
                 ),
-
               ),
             ),
             Expanded(
               child: TabBarView(
                 children: [
+                  // Login Form
                   SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Container(
-                          alignment: Alignment.topLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(30, 20, 0, 10),
-                            child: Container(
-                                child: Text('Login in your account',
-                                  style: TextStyle(fontSize: 22,
-                                      fontFamily: 'RedHatDisplay',
-                                      fontWeight: FontWeight.bold
-                                      ,color: Color(0xFF013D5A)),)),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 5, 30, 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFFCF3E3),
-                              border: Border.all(color: Color(0xFF013D5A),
-                                  width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
-                                ),
-                              ],
-                            ),
-                            child: TextFormField(
-
-                              decoration: InputDecoration(
-
-                                hintText: 'E-mail',
-                                hintStyle: TextStyle(
+                    child: Form(
+                      key: _loginFormKey,
+                      child: Column(
+                        children: [
+                          Container(
+                            alignment: Alignment.topLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(30, 20, 0, 10),
+                              child: Text(
+                                'Login in your account',
+                                style: TextStyle(
+                                  fontSize: 22,
                                   fontFamily: 'RedHatDisplay',
-                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF013D5A),
                                 ),
-                                prefixIcon:Icon(Icons.email,
-                                  size: 40,
-                                  color: Color(0xFFA6CB4E),),
                               ),
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFFCF3E3),
-                              border: Border.all(color: Color(0xFF013D5A),
-                                  width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 5, 30, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFFCF3E3),
+                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        spreadRadius: 3,
+                                        blurRadius: 5,
+                                        offset: Offset(4, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _loginEmailController,
+                                    decoration: InputDecoration(
+                                      hintText: 'E-mail',
+                                      hintStyle: TextStyle(
+                                        fontFamily: 'RedHatDisplay',
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF013D5A),
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.email,
+                                        size: 40,
+                                        color: Color(0xFFA6CB4E),
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter your email';
+                                      }
+                                      final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                                      if (!emailRegex.hasMatch(value)) {
+                                        return 'Please enter a valid email address';
+                                      }
+                                      return null;
+                                    },
+                                  ),
                                 ),
                               ],
                             ),
-                            child: TextFormField(
-
-                              decoration: InputDecoration(
-                                  hintText: 'Password',
-                                  hintStyle: TextStyle(
-                                    fontFamily: 'RedHatDisplay',
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF013D5A),
-                                  ),
-                                  prefixIcon:Icon(Icons.lock,
-                                    size: 40,
-                                    color: Color(0xFFA6CB4E),),
-                                  suffixIcon: Icon(Icons.remove_red_eye,
-                                    size: 40,
-                                    color: Color(0xFFA6CB4E),
-                                  )
-                              ),
-                            ),
                           ),
-                        ),
-                        Container(
-                          alignment: Alignment.centerRight,
-                          padding: EdgeInsets.fromLTRB(0, 10, 30, 10),
-                          child: Text(
-                            'Forget Pin?',
-                            style: TextStyle(color: Color(0xFF013D5A),
-                              fontFamily: 'RedHatDisplay',
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => OtpPage()),
-                              );
-                            },
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
                             child: Container(
-                              height: 60,
                               decoration: BoxDecoration(
+                                color: Color(0xFFFCF3E3),
+                                border: Border.all(color: Color(0xFF013D5A), width: 3),
                                 borderRadius: BorderRadius.circular(12),
-                                color: Color(0xFFA6CB4E),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.5),
@@ -179,176 +166,438 @@ class _loginState extends State<login> {
                                   ),
                                 ],
                               ),
-                              child: Center(
-                                child: Text(
-                                  'Login',
-                                  style: TextStyle(
+                              child: TextFormField(
+                                controller: _loginPasswordController,
+                                obscureText: !_isLoginPasswordVisible,
+                                decoration: InputDecoration(
+                                  hintText: 'Password',
+                                  hintStyle: TextStyle(
                                     fontFamily: 'RedHatDisplay',
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFFCF3E3),
-                                    fontSize: 25,
+                                    color: Color(0xFF013D5A),
+                                  ),
+                                  prefixIcon: Icon(
+                                    Icons.lock,
+                                    size: 40,
+                                    color: Color(0xFFA6CB4E),
+                                  ),
+                                  suffixIcon: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _isLoginPasswordVisible = !_isLoginPasswordVisible;
+                                      });
+                                    },
+                                    child: Icon(
+                                      _isLoginPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                      size: 40,
+                                      color: Color(0xFFA6CB4E),
+                                    ),
+                                  ),
+                                  border: InputBorder.none,
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your password';
+                                  }
+                                  if (value.length < 8) {
+                                    return 'Password must be at least 8 characters long';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ),
+                          Container(
+                            alignment: Alignment.centerRight,
+                            padding: EdgeInsets.fromLTRB(0, 10, 30, 10),
+                            child: Text(
+                              'Forget Pin?',
+                              style: TextStyle(
+                                color: Color(0xFF013D5A),
+                                fontFamily: 'RedHatDisplay',
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                            child: GestureDetector(
+                                onTap: () async {
+                                  if (_loginFormKey.currentState!.validate()) {
+                                    final userCredential = await firebaseServices.loginWithEmail(
+                                      _loginEmailController.text.trim(),
+                                      _loginPasswordController.text.trim(),
+                                    );
+                                    if (userCredential != null) {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(builder: (_) => HomePage()),
+                                      );
+                                    }
+                                  }
+                                },
+                              child: Container(
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Color(0xFFA6CB4E),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      spreadRadius: 3,
+                                      blurRadius: 5,
+                                      offset: Offset(4, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Login',
+                                    style: TextStyle(
+                                      fontFamily: 'RedHatDisplay',
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFCF3E3),
+                                      fontSize: 25,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                            child: GestureDetector(
+                              onTap: () async {
+                                final userCredential = await firebaseServices.signInWithGoogle();
+                                if(userCredential != null) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => HomePage()),
+                                  );
+                                }
+
+                              },
+                              child: Container(
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Color(0xFFA6CB4E),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      spreadRadius: 3,
+                                      blurRadius: 5,
+                                      offset: Offset(4, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Continue with google ',
+                                    style: TextStyle(
+                                      fontFamily: 'RedHatDisplay',
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFCF3E3),
+                                      fontSize: 25,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        ],
+                      ),
                     ),
                   ),
+                  // Signup Form
                   SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Container(
-                          alignment: Alignment.topLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(30, 20, 0, 10),
-                            child: Container(
-                                child: Text('Become the part of our future',
-                                  style: TextStyle(fontSize: 22,
-                                      fontFamily: 'RedHatDisplay',
-                                      fontWeight: FontWeight.bold
-                                      ,color: Color(0xFF013D5A)),)),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 5, 30, 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFFCF3E3),
-                              border: Border.all(color: Color(0xFF013D5A),
-                                  width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
-                                ),
-                              ],
-                            ),
-                            child: TextFormField(
-
-                              decoration: InputDecoration(
-
-                                hintText: 'E-mail',
-                                hintStyle: TextStyle(
+                    child: Form(
+                      key: _signupFormKey,
+                      child: Column(
+                        children: [
+                          Container(
+                            alignment: Alignment.topLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(30, 20, 0, 10),
+                              child: Text(
+                                'Become the part of our future',
+                                style: TextStyle(
+                                  fontSize: 22,
                                   fontFamily: 'RedHatDisplay',
-                                  fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF013D5A),
                                 ),
-                                prefixIcon:Icon(Icons.email,
-                                  size: 40,
-                                  color: Color(0xFFA6CB4E),),
                               ),
                             ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFFCF3E3),
-                              border: Border.all(color: Color(0xFF013D5A),
-                                  width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
-                                ),
-                              ],
-                            ),
-                            child: TextFormField(
-
-                              decoration: InputDecoration(
-                                  hintText: 'Create password',
-                                  hintStyle: TextStyle(
-                                    fontFamily: 'RedHatDisplay',
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF013D5A),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 5, 30, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFFCF3E3),
+                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        spreadRadius: 3,
+                                        blurRadius: 5,
+                                        offset: Offset(4, 4),
+                                      ),
+                                    ],
                                   ),
-                                  prefixIcon:Icon(Icons.lock,
-                                    size: 40,
-                                    color: Color(0xFFA6CB4E),),
-                                  suffixIcon: Icon(Icons.remove_red_eye,
-                                    size: 40,
-                                    color: Color(0xFFA6CB4E),
-                                  )
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFFCF3E3),
-                              border: Border.all(color: Color(0xFF013D5A),
-                                  width: 3),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
-                                ),
-                              ],
-                            ),
-                            child: TextFormField(
-
-                              decoration: InputDecoration(
-                                  hintText: 'Repeat password',
-                                  hintStyle: TextStyle(
-                                    fontFamily: 'RedHatDisplay',
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF013D5A),
+                                  child: TextFormField(
+                                    controller: _signupEmailController,
+                                    decoration: InputDecoration(
+                                      hintText: 'E-mail',
+                                      hintStyle: TextStyle(
+                                        fontFamily: 'RedHatDisplay',
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF013D5A),
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.email,
+                                        size: 40,
+                                        color: Color(0xFFA6CB4E),
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter your email';
+                                      }
+                                      final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                                      if (!emailRegex.hasMatch(value)) {
+                                        return 'Please enter a valid email address';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                  prefixIcon:Icon(Icons.lock,
-                                    size: 40,
-                                    color: Color(0xFFA6CB4E),),
-                                  suffixIcon: Icon(Icons.remove_red_eye,
-                                    size: 40,
-                                    color: Color(0xFFA6CB4E),
-                                  )
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
-                          child: Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: Color(0xFFA6CB4E),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.5), // Shadow color
-                                  spreadRadius: 3, // How far the shadow spreads
-                                  blurRadius: 5, // Blurry effect
-                                  offset: Offset(4, 4), // Position of shadow (x, y)
                                 ),
                               ],
                             ),
-                            child: Center(child: Text('Join In Communit',
-                              style: TextStyle(
-                                fontFamily: 'RedHatDisplay',
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFFCF3E3),
-                                fontSize: 25,
-
-                              ),)),
                           ),
-                        ),
-                      ],
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFFCF3E3),
+                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        spreadRadius: 3,
+                                        blurRadius: 5,
+                                        offset: Offset(4, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _signupPasswordController,
+                                    obscureText: !_isSignupPasswordVisible,
+                                    decoration: InputDecoration(
+                                      hintText: 'Password',
+                                      hintStyle: TextStyle(
+                                        fontFamily: 'RedHatDisplay',
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF013D5A),
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.lock,
+                                        size: 40,
+                                        color: Color(0xFFA6CB4E),
+                                      ),
+                                      suffixIcon: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _isSignupPasswordVisible = !_isSignupPasswordVisible;
+                                          });
+                                        },
+                                        child: Icon(
+                                          _isSignupPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                          size: 40,
+                                          color: Color(0xFFA6CB4E),
+                                        ),
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter your password';
+                                      }
+                                      if (value.length < 8) {
+                                        return 'Password must be at least 8 characters long';
+                                      }
+                                      if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                                        return 'Password must contain at least one uppercase letter';
+                                      }
+                                      if (!RegExp(r'[a-z]').hasMatch(value)) {
+                                        return 'Password must contain at least one lowercase letter';
+                                      }
+                                      if (!RegExp(r'[0-9]').hasMatch(value)) {
+                                        return 'Password must contain at least one number';
+                                      }
+                                      if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+                                        return 'Password must contain at least one special character';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFFCF3E3),
+                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.5),
+                                        spreadRadius: 3,
+                                        blurRadius: 5,
+                                        offset: Offset(4, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextFormField(
+                                    controller: _signupConfirmPasswordController,
+                                    obscureText: !_isSignupConfirmPasswordVisible,
+                                    decoration: InputDecoration(
+                                      hintText: 'Confirm Password',
+                                      hintStyle: TextStyle(
+                                        fontFamily: 'RedHatDisplay',
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF013D5A),
+                                      ),
+                                      prefixIcon: Icon(
+                                        Icons.lock,
+                                        size: 40,
+                                        color: Color(0xFFA6CB4E),
+                                      ),
+                                      suffixIcon: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _isSignupConfirmPasswordVisible = !_isSignupConfirmPasswordVisible;
+                                          });
+                                        },
+                                        child: Icon(
+                                          _isSignupConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                          size: 40,
+                                          color: Color(0xFFA6CB4E),
+                                        ),
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                    validator: (value) {
+                                      if (value != _signupPasswordController.text) {
+                                        return 'Passwords do not match';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (_signupFormKey.currentState!.validate()) {
+                                  final userCredential = await firebaseServices.signUpWithEmail(
+                                    _signupEmailController.text.trim(),
+                                    _signupPasswordController.text.trim(),
+                                  );
+                                  if (userCredential != null) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => OtpPage()),
+                                    );
+                                  }
+                                }
+                              },
+                              child: Container(
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Color(0xFFA6CB4E),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      spreadRadius: 3,
+                                      blurRadius: 5,
+                                      offset: Offset(4, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Join In Community',
+                                    style: TextStyle(
+                                      fontFamily: 'RedHatDisplay',
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFCF3E3),
+                                      fontSize: 25,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
+                            child: GestureDetector(
+                              onTap: () async {
+                                await firebaseServices.signInWithGoogle();
+                              },
+                              child: Container(
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Color(0xFFA6CB4E),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.5),
+                                      spreadRadius: 3,
+                                      blurRadius: 5,
+                                      offset: Offset(4, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'SignUp with google ',
+                                    style: TextStyle(
+                                      fontFamily: 'RedHatDisplay',
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFFCF3E3),
+                                      fontSize: 25,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
