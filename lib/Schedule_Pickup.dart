@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:revive_eco_tech_app/Add_Address.dart';
 
 class SchedulePickup extends StatefulWidget {
   @override
@@ -110,16 +111,22 @@ class _SchedulePickupState extends State<SchedulePickup> {
                               )),
                         )),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 5, 0, 0),
-                        child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text('+Add new address',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold
-                              ),
-                            )),
+                      GestureDetector(
+                        onTap: (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context)=>AddAddress()),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(0, 5, 0, 0),
+                          child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('+Add new address',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold
+                                ),
+                              )),
+                        ),
                       )
                     ],
                   ),
