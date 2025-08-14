@@ -7,6 +7,8 @@ import 'Schedule_Pickup.dart';
 import 'widgets/pickup_tracker.dart';
 
 
+
+
 // ==== Constants ====
 const kPrimaryColor = Color(0xFF013856);
 const kAccentColor = Color(0xFFa7cd47);
@@ -307,10 +309,10 @@ class _HomePageState extends State<HomePage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
-                  height: 120, // Define a fixed height
+                  // height: 120, // Define a fixed height
                   child: GridView.count(
                     crossAxisCount: 4,
-                    crossAxisSpacing: 10,
+                    crossAxisSpacing: 5,
                     mainAxisSpacing: 5,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -366,11 +368,16 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     // --- Upcoming Drives ---
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center, // Keeps them centered instead of stretching
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
-                        Text("Upcoming Drives", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        SizedBox(width: 180), // Adjust this value to control the gap
-                        Text("View all", style: TextStyle(color: Colors.green)),
+                        Text(
+                          "Upcoming Drives",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                        Text(
+                          "View all",
+                          style: TextStyle(color: Colors.green),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
