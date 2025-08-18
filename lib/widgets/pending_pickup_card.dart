@@ -84,32 +84,42 @@ class PendingPickupCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton(
-                  onPressed: () {
-                    // Optional: expose this as a callback parameter
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.black),
-                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
+                    child: OutlinedButton(
+                      onPressed: () {
+                        // Optional: expose this as a callback parameter
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.black),
+                        padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.black)),
                     ),
                   ),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.black)),
                 ),
-                const SizedBox(width: 36),
-                ElevatedButton(
-                  onPressed: () {
-                    // Optional: expose this as a callback parameter
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFA8CF45),
-                    padding: const EdgeInsets.symmetric(horizontal: 37, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                // const SizedBox(width: 36),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Optional: expose this as a callback parameter
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFA8CF45),
+                        padding: const EdgeInsets.symmetric(horizontal: 37, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Edit Pickup', style: TextStyle(color: Colors.black)),
                     ),
                   ),
-                  child: const Text('Edit Pickup', style: TextStyle(color: Colors.black)),
                 ),
               ],
             )
