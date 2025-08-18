@@ -2,14 +2,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:revive_eco_tech_app/launch_page.dart';
 import 'package:revive_eco_tech_app/utilities/tiles.datrt.dart';
-class Settings extends StatefulWidget {
-  const Settings({super.key});
+class Settings_page extends StatefulWidget {
+  const Settings_page({super.key});
 
   @override
-  State<Settings> createState() => _SettingsState();
+  State<Settings_page> createState() => _SettingsState();
 }
 
-class _SettingsState extends State<Settings> {
+class _SettingsState extends State<Settings_page> {
 
   @override
   Widget build(BuildContext context) {
