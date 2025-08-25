@@ -38,6 +38,8 @@ dependencies:
   google_sign_in: ^7.0.0
   firebase_auth: ^6.0.0
   cloud_firestore: ^6.0.0
+  flutter_rating_bar: ^4.0.0 
+
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +70,7 @@ flutter:
     - assets/images/home/scraps/
     - assets/images/home/history/
     - assets/icons/
+    - assets/review.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
