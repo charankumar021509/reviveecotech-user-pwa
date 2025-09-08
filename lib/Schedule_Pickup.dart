@@ -21,6 +21,95 @@ class _SchedulePickupState extends State<SchedulePickup> {
   double _currentWeight = 250.0; // default mid-value for range 0–500
   late TextEditingController _controller;
 
+  void showCustomPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        int? selectedIndex;
+        List<String> slots = [
+          '09:00AM - 11:00AM',
+          '11:00AM - 01:00PM',
+          '03:00PM - 05:00PM',
+          '05:00PM - 07:00PM',
+        ];
+
+        return StatefulBuilder(
+          builder: (context, setState) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black12)],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Add time slot',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  SizedBox(height: 16),
+                  ...List.generate(slots.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedIndex = index;
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: selectedIndex == index
+                                ? Color(0xFFA6CB4E)
+                                : Colors.transparent,
+                            border: Border.all(width: 1, color: Colors.black),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Text(
+                                slots[index],
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: selectedIndex == index
+                                      ? Colors.black
+                                      : Colors.black,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  SizedBox(height: 24),
+                  // ElevatedButton(
+                  //   onPressed: () => Navigator.of(context).pop(),
+                  //   style: ElevatedButton.styleFrom(
+                  //     padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  //     backgroundColor: Color(0xFFA6CB4E),
+                  //     shape: RoundedRectangleBorder(
+                  //       borderRadius: BorderRadius.circular(30),
+                  //     ),
+                  //   ),
+                  //   child: Text('OK'),
+                  // )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
   @override
   void initState() {
     super.initState();
@@ -189,21 +278,24 @@ class _SchedulePickupState extends State<SchedulePickup> {
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(10, 0, 0, 0),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                    border: Border.all(width: 1, color: Colors.black)
+                              child: GestureDetector(
+                                onTap: () => showCustomPopup(context),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                      border: Border.all(width: 1, color: Colors.black)
+                                  ),
+                                  child: Center(child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(5, 5, 0, 5),
+                                    child: Align(
+                                        alignment: Alignment.center,
+                                        child: Text('Select Time Slot',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        )),
+                                  )),
                                 ),
-                                child: Center(child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(5, 5, 0, 5),
-                                  child: Align(
-                                      alignment: Alignment.center,
-                                      child: Text('Select Time Slot',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      )),
-                                )),
                               ),
                             ),
                           ),

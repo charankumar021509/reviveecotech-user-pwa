@@ -26,11 +26,14 @@ class _launch_pageState extends State<launch_page> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  // onTap:(){
-                  //   Navigator.push(context, MaterialPageRoute(builder: (context)=>signup()
-                  //   ),
-                  //   );
-                  // },
+                  onTap:(){
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => login(initialTabIndex: 1),
+                      ),
+                    );
+                  },
 
                 child:Padding(
                   padding: const EdgeInsets.fromLTRB(30, 0, 30, 10),
@@ -64,8 +67,10 @@ class _launch_pageState extends State<launch_page> {
                 ),
                 GestureDetector(
                   onTap: (){
-                    Navigator.push(context,
-                      MaterialPageRoute(builder: (context)=>login()
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => login(initialTabIndex: 0),
                       ),
                     );
                   },

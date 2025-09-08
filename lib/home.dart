@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:revive_eco_tech_app/pricelist.dart';
@@ -5,6 +7,9 @@ import 'package:revive_eco_tech_app/setting.dart';
 import 'package:revive_eco_tech_app/profile.dart';
 import 'Schedule_Pickup.dart';
 import 'widgets/pickup_tracker.dart';
+
+
+
 
 
 // ==== Constants ====
@@ -50,11 +55,13 @@ Color shadowColor = Colors.white; // You can change it to any color
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
+
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   String selectedLocation = 'Barrackpore, Kolkata';
+  String userName = "User";
 
   final List<String> locations = [
     'Barrackpore, Kolkata',
@@ -151,6 +158,35 @@ class _HomePageState extends State<HomePage> {
   }
   int _CurrentIndex = 0;
   @override
+  @override
+  void initState() {
+    super.initState();
+    fetchUserName();
+  }
+
+  Future<void> fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        setState(() {
+          userName = user.displayName!;
+        });
+      } else {
+        final doc = await FirebaseFirestore.instance
+            .collection("users")
+            .doc(user.uid)
+            .get();
+
+        if (doc.exists && doc.data()!.containsKey("name")) {
+          setState(() {
+            userName = doc["name"];
+          });
+        }
+      }
+    }
+  }
+
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -204,25 +240,26 @@ class _HomePageState extends State<HomePage> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 23.0), // Adjust this value to move text downward
                                 child: Row(
-                                  children: const [
+                                  children: [
                                     Text(
-                                      'Hello, Shubham ',
-                                      style: TextStyle(
+                                      'Hello, $userName',
+                                      style: const TextStyle(
                                         fontSize: 21,
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    Text(
-                                      '!',
-                                      style: TextStyle(
-                                        fontSize: 21,
-                                        color: kAccentColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    // const Text(
+                                    //   '!',
+                                    //   style: TextStyle(
+                                    //     fontSize: 21,
+                                    //     color: kAccentColor,
+                                    //     fontWeight: FontWeight.bold,
+                                    //   ),
+                                    // ),
                                   ],
                                 ),
+
                               ),
                               Row(
                                 children: [
@@ -306,10 +343,11 @@ class _HomePageState extends State<HomePage> {
               // ==== Shortcuts Grid ====
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
+                child: SizedBox(
+                  // height: 120, // Define a fixed height
                   child: GridView.count(
                     crossAxisCount: 4,
-                    crossAxisSpacing: 10,
+                    crossAxisSpacing: 5,
                     mainAxisSpacing: 5,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -365,11 +403,16 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     // --- Upcoming Drives ---
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center, // Keeps them centered instead of stretching
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
-                        Text("Upcoming Drives", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        SizedBox(width: 180), // Adjust this value to control the gap
-                        Text("View all", style: TextStyle(color: Colors.green)),
+                        Text(
+                          "Upcoming Drives",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                        Text(
+                          "View all",
+                          style: TextStyle(color: Colors.green),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -424,7 +467,7 @@ class _HomePageState extends State<HomePage> {
             if (index == 2) { // If "Market Rates" is clicked
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => Settings()),
+                MaterialPageRoute(builder: (context) => Settings_page()),
               );
             }else {
               setState(() {
