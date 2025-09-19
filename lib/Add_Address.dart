@@ -3,7 +3,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart'; // Import the geocoding package
+import 'package:geocoding/geocoding.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✨ NEW
+import 'package:cloud_firestore/cloud_firestore.dart'; // ✨ NEW
 
 class AddAddress extends StatefulWidget {
   const AddAddress({super.key});
@@ -19,13 +21,16 @@ class _AddAddressState extends State<AddAddress> {
   String _sAddress = "Drag map to select location";
   final TextEditingController _bName = TextEditingController();
   String? _sAddressType;
-  final ValueNotifier<double>_sheetExtent = ValueNotifier<double>(0.3);
+  final ValueNotifier<double> _sheetExtent = ValueNotifier<double>(0.3);
   static double _minSheetSize = 0.15;
   static double _initialSheetSize = 0.35;
   static double _maxSheetSize = 0.8;
   Marker? _llMarker;
   StreamSubscription<Position>? _pss;
   BitmapDescriptor? _llIcon;
+
+  // ✨ NEW: Loading state for submit button
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -49,8 +54,7 @@ class _AddAddressState extends State<AddAddress> {
     final double size = 60;
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    final Paint paint = Paint()
-      ..color = Colors.teal;
+    final Paint paint = Paint()..color = Colors.teal;
     canvas.drawCircle(Offset(size / 2, size / 2), size / 3, paint);
     final Paint arrowPaint = Paint()
       ..color = Colors.white
@@ -64,8 +68,7 @@ class _AddAddressState extends State<AddAddress> {
     arrowPath.lineTo(size / 2 + arrowSize, size / 2 + arrowSize * 0.5);
     arrowPath.close();
     canvas.drawPath(arrowPath, arrowPaint);
-    final img = await pictureRecorder.endRecording().toImage(
-        size.toInt(), size.toInt());
+    final img = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
     final data = await img.toByteData(format: ui.ImageByteFormat.png);
     if (data != null) {
       _llIcon = BitmapDescriptor.fromBytes(data.buffer.asUint8List());
@@ -76,8 +79,7 @@ class _AddAddressState extends State<AddAddress> {
   Future<void> _sltll() async {
     try {
       await currentPosition();
-    }
-    catch (e) {
+    } catch (e) {
       print(
           "Live Location Listening not started due to permission/service issues:$e");
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,10 +122,8 @@ class _AddAddressState extends State<AddAddress> {
       _sAddress = "Fetching address...";
     });
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude
-      );
+      List<Placemark> placemarks =
+      await placemarkFromCoordinates(position.latitude, position.longitude);
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
@@ -134,25 +134,84 @@ class _AddAddressState extends State<AddAddress> {
             place.administrativeArea,
             place.postalCode,
             place.country
-          ].where((element) => element != null && element.isNotEmpty).join(
-              ', ');
+          ].where((element) => element != null && element.isNotEmpty).join(', ');
           isLoading = false;
         });
-      }
-      else {
+      } else {
         setState(() {
           _sAddress = "No address found for this Location";
           isLoading = false;
         });
       }
-    }
-
-    catch (e) {
+    } catch (e) {
       setState(() {
         _sAddress = "Error getting address: ${e.toString()}";
         isLoading = false;
       });
       print("Error in _getAddress:$e");
+    }
+  }
+
+  // ✨ NEW: Function to show a snackbar
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: TextStyle(color: Colors.white)),
+        backgroundColor: isError ? Colors.red : Color(0xFFA6CB4E),
+      ),
+    );
+  }
+
+  // ✨ NEW: Function to save the address
+  Future<void> _saveAddress() async {
+    // 1. Validation
+    if (_mapCenter == null) {
+      _showSnackBar("Please select a location on the map.", isError: true);
+      return;
+    }
+    if (_bName.text.trim().isEmpty) {
+      _showSnackBar("Please enter a Building Name or House No.", isError: true);
+      return;
+    }
+    if (_sAddressType == null) {
+      _showSnackBar("Please select an address type (Home, Office, etc.).",
+          isError: true);
+      return;
+    }
+
+    // 2. Get current user
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showSnackBar("You must be logged in to save an address.", isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      // 3. Get reference to the user's 'addresses' subcollection
+      final addressRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('addresses');
+
+      // 4. Add the new address document
+      await addressRef.add({
+        'line1': _bName.text.trim(),
+        'fullAddress': _sAddress,
+        'latitude': _mapCenter!.latitude,
+        'longitude': _mapCenter!.longitude,
+        'addressType': _sAddressType,
+        'createdAt': FieldValue.serverTimestamp(), // Good to have this
+      });
+
+      _showSnackBar("Address saved successfully!");
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _showSnackBar("Failed to save address: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -188,10 +247,8 @@ class _AddAddressState extends State<AddAddress> {
           ValueListenableBuilder(
             valueListenable: _sheetExtent,
             builder: (context, currentExtent, child) {
-              double mapH = MediaQuery
-                  .of(context)
-                  .size
-                  .height * (1.0 - currentExtent);
+              double mapH =
+                  MediaQuery.of(context).size.height * (1.0 - currentExtent);
               return Container(
                 height: mapH,
                 child: GoogleMap(
@@ -208,11 +265,12 @@ class _AddAddressState extends State<AddAddress> {
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   markers: {
-                    if(_llMarker != null)_llMarker!,
+                    if (_llMarker != null) _llMarker!,
                   },
                   onCameraMove: (CameraPosition position) {
                     _mapCenter = position.target;
-                    if (_sheetExtent.value != _minSheetSize) {
+                    // ✨ Smoothly animate sheet to min size instead of snapping
+                    if (_sheetExtent.value > _minSheetSize + 0.1) {
                       _sheetExtent.value = _minSheetSize;
                     }
                   },
@@ -226,10 +284,14 @@ class _AddAddressState extends State<AddAddress> {
             },
           ),
           const Center(
-            child: Icon(
-              Icons.location_on_sharp,
-              size: 40,
-              color: Colors.redAccent,
+            child: Padding(
+              // ✨ Add padding to "pin" doesn't overlap the sheet handle
+              padding: EdgeInsets.only(bottom: 50.0),
+              child: Icon(
+                Icons.location_on_sharp,
+                size: 40,
+                color: Colors.redAccent,
+              ),
             ),
           ),
           DraggableScrollableSheet(
@@ -280,30 +342,27 @@ class _AddAddressState extends State<AddAddress> {
                             borderRadius: BorderRadius.circular(10),
                             color: Colors.grey.shade100,
                           ),
-                          child: Row(
-                              children: [
-                                const Icon(Icons.location_on,
-                                  color: Color(0xFF013D5A),
+                          child: Row(children: [
+                            const Icon(Icons.location_on,
+                                color: Color(0xFF013D5A)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: isLoading
+                                  ? const LinearProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF013D5A)),
+                              )
+                                  : Text(
+                                _sAddress,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black87,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: isLoading
-                                      ? const LinearProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF013D5A)),
-                                  )
-                                      : Text(
-                                    _sAddress,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.black87,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ]
-                          ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ]),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -316,16 +375,17 @@ class _AddAddressState extends State<AddAddress> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                  color: Color(0xFF013D5A)),
+                              borderSide:
+                              const BorderSide(color: Color(0xFF013D5A)),
                             ),
-                            labelStyle: const TextStyle(
-                                color: Color(0xFF013D5A)),
+                            labelStyle:
+                            const TextStyle(color: Color(0xFF013D5A)),
                           ),
                           style: const TextStyle(color: Colors.black87),
                         ),
                         SizedBox(height: 16),
-                        const Text("Save This Address as",
+                        const Text(
+                          "Save This Address as",
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -344,45 +404,12 @@ class _AddAddressState extends State<AddAddress> {
                             SizedBox(width: 8),
                           ],
                         ),
-                        const SizedBox(height: 24,),
+                        const SizedBox(
+                          height: 24,
+                        ),
                         ElevatedButton(
-                          onPressed: () {
-                            if (_mapCenter != null) {
-                              final cLatitude = _mapCenter!.latitude;
-                              final cLongitude = _mapCenter!.longitude;
-                              final cFullAddress = _sAddress;
-                              final cBname = _bName.text;
-                              final cAddressType = _sAddressType ??
-                                  "Not Specified";
-                              print('--- Confirmed Address Details ---');
-                              print('Latitude: $cLatitude');
-                              print('Longitude: $cLongitude');
-                              print('Full Address: $cFullAddress');
-                              print('Building/House No: $cBname');
-                              print('Address Type: $cAddressType');
-                              print('---------------------------------');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(
-                                  "Location Confirmed: $cFullAddress\nType:$cAddressType",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                  backgroundColor: Color(0xFFA6CB4E),
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
-                            }
-                            else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      "Please select a location on the map."),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                            }
-                          },
+                          // ✨ UPDATED: Call _saveAddress
+                          onPressed: _isSaving ? null : _saveAddress,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFA6CB4E),
                             foregroundColor: Colors.white,
@@ -392,7 +419,12 @@ class _AddAddressState extends State<AddAddress> {
                             padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
                           ),
                           child: Center(
-                            child: Text(
+                            child: _isSaving
+                                ? CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white),
+                            )
+                                : Text(
                               "Confirm Address",
                               style: TextStyle(
                                 fontSize: 18,
@@ -402,10 +434,9 @@ class _AddAddressState extends State<AddAddress> {
                             ),
                           ),
                         ),
-                        SizedBox(height: MediaQuery
-                            .of(context)
-                            .padding
-                            .bottom + 16,),
+                        SizedBox(
+                          height: MediaQuery.of(context).padding.bottom + 16,
+                        ),
                       ],
                     ),
                   ),
@@ -416,14 +447,11 @@ class _AddAddressState extends State<AddAddress> {
           ValueListenableBuilder<double>(
             valueListenable: _sheetExtent,
             builder: (context, currentExtent, child) {
-              double fabBottomPosition = (MediaQuery
-                  .of(context)
-                  .size
-                  .height * currentExtent) + 16.0;
-              final double maxFabBottom = MediaQuery
-                  .of(context)
-                  .size
-                  .height - AppBar().preferredSize.height - 80;
+              double fabBottomPosition =
+                  (MediaQuery.of(context).size.height * currentExtent) + 16.0;
+              final double maxFabBottom = MediaQuery.of(context).size.height -
+                  AppBar().preferredSize.height -
+                  80;
               fabBottomPosition = fabBottomPosition.clamp(16.0, maxFabBottom);
               return Positioned(
                 right: 16.0,
@@ -436,8 +464,8 @@ class _AddAddressState extends State<AddAddress> {
                     setState(() => isLoading = true);
                     try {
                       Position position = await currentPosition();
-                      LatLng pos = LatLng(
-                          position.latitude, position.longitude);
+                      LatLng pos =
+                      LatLng(position.latitude, position.longitude);
                       await googleMapController.animateCamera(
                         CameraUpdate.newCameraPosition(
                           CameraPosition(
@@ -450,22 +478,18 @@ class _AddAddressState extends State<AddAddress> {
                       _getAddress(pos);
                       print('Current Location fetched and map centered');
                       _sheetExtent.value = _initialSheetSize;
-                    }
-                    catch (e) {
+                    } catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
                             "Error getting location:${e.toString()}",
-                            style: TextStyle(
-                                color: Colors.white
-                            ),
+                            style: TextStyle(color: Colors.white),
                           ),
                           backgroundColor: Colors.red,
                         ),
                       );
                       print('Location error: $e');
-                    }
-                    finally {
+                    } finally {
                       setState(() => isLoading = false);
                     }
                   },
@@ -478,7 +502,7 @@ class _AddAddressState extends State<AddAddress> {
               );
             },
           ),
-          if(isLoading && _sAddress == "fetching address...")
+          if (isLoading && _sAddress == "fetching address...")
             const Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF013D5A)),
@@ -516,30 +540,31 @@ class _AddAddressState extends State<AddAddress> {
       ),
     );
   }
-  Future<Position> currentPosition() async{
+
+  Future<Position> currentPosition() async {
     bool serviceEnabled;
     LocationPermission permission;
-    serviceEnabled=await Geolocator.isLocationServiceEnabled();
-    if(!serviceEnabled){
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
       await Geolocator.openLocationSettings();
       throw Exception('Location services are disabled.');
     }
-    permission=await Geolocator.checkPermission();
-    if(permission==LocationPermission.denied){
-      permission=await Geolocator.requestPermission();
-      if(permission==LocationPermission.denied){
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
         throw Exception('Location permissions are denied.');
       }
     }
-    if(permission==LocationPermission.deniedForever){
-      throw Exception('Location permissions are permanently denied ,we cannot request permissions. ');
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(
+          'Location permissions are permanently denied ,we cannot request permissions. ');
     }
-    try{
+    try {
       return await Geolocator.getCurrentPosition();
-    }
-    catch(e){
-      Position?lastKnown=await Geolocator.getLastKnownPosition();
-      if(lastKnown!=null){
+    } catch (e) {
+      Position? lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
         print('Could not get current position,returning last known position.');
         return lastKnown;
       }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:revive_eco_tech_app/launch_page.dart';
+// Import your new wrapper
+import 'package:revive_eco_tech_app/auth_wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
-import 'package:revive_eco_tech_app/home.dart';
+// You no longer need FirebaseAuth or HomePage here
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,13 +11,12 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Check if the user is already logged in
-  final User? currentUser = FirebaseAuth.instance.currentUser;
-
+  // All the old logic is removed. We let AuthWrapper handle it.
   runApp(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: currentUser != null ? HomePage() : launch_page(),
+      // Set the AuthWrapper as the home
+      home: const AuthWrapper(),
     ),
   );
 }

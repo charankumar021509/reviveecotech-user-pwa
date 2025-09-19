@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:revive_eco_tech_app/home.dart';
+import 'package:revive_eco_tech_app/emailverification.dart';
 import 'otp_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:revive_eco_tech_app/auth/google_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ✨ NEW: Import Firestore
+import 'package:revive_eco_tech_app/forgot_password_page.dart'; // ✨ ADD THIS IMPORT
 
 class login extends StatefulWidget {
   final int initialTabIndex;
@@ -11,7 +14,6 @@ class login extends StatefulWidget {
   State<login> createState() => _loginState();
 }
 
-
 class _loginState extends State<login> {
   final _loginFormKey = GlobalKey<FormState>();
   final _signupFormKey = GlobalKey<FormState>();
@@ -19,15 +21,42 @@ class _loginState extends State<login> {
   bool _isSignupPasswordVisible = false;
   bool _isSignupConfirmPasswordVisible = false;
 
-
-
   final firebaseServices = FirebaseServices();
 
   final TextEditingController _loginEmailController = TextEditingController();
   final TextEditingController _loginPasswordController = TextEditingController();
   final TextEditingController _signupEmailController = TextEditingController();
   final TextEditingController _signupPasswordController = TextEditingController();
-  final TextEditingController _signupConfirmPasswordController = TextEditingController();
+  final TextEditingController _signupConfirmPasswordController =
+  TextEditingController();
+
+  void showErrorToUser(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ✨ NEW: Helper function to create user profile in Firestore
+  Future<void> createUserProfile(User user) async {
+    final userDocRef =
+    FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final docSnap = await userDocRef.get();
+
+    if (!docSnap.exists) {
+      // Only create profile if it doesn't already exist
+      await userDocRef.set({
+        'name': user.displayName ??
+            'User-${user.uid.substring(0, 6)}', // Use Google name or default
+        'phone': user.phoneNumber ?? '', // Use Google phone or empty
+        'createdAt': FieldValue.serverTimestamp(),
+        'email': user.email, // Store email for reference
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +136,8 @@ class _loginState extends State<login> {
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Color(0xFFFCF3E3),
-                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    border: Border.all(
+                                        color: Color(0xFF013D5A), width: 3),
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
@@ -139,7 +169,8 @@ class _loginState extends State<login> {
                                       if (value == null || value.isEmpty) {
                                         return 'Please enter your email';
                                       }
-                                      final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                                      final emailRegex = RegExp(
+                                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
                                       if (!emailRegex.hasMatch(value)) {
                                         return 'Please enter a valid email address';
                                       }
@@ -155,7 +186,8 @@ class _loginState extends State<login> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: Color(0xFFFCF3E3),
-                                border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                border: Border.all(
+                                    color: Color(0xFF013D5A), width: 3),
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
@@ -185,11 +217,14 @@ class _loginState extends State<login> {
                                   suffixIcon: GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        _isLoginPasswordVisible = !_isLoginPasswordVisible;
+                                        _isLoginPasswordVisible =
+                                        !_isLoginPasswordVisible;
                                       });
                                     },
                                     child: Icon(
-                                      _isLoginPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                      _isLoginPasswordVisible
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
                                       size: 40,
                                       color: Color(0xFFA6CB4E),
                                     ),
@@ -208,34 +243,47 @@ class _loginState extends State<login> {
                               ),
                             ),
                           ),
+                          // ==== REPLACE IT WITH THIS CODE ====
                           Container(
                             alignment: Alignment.centerRight,
                             padding: EdgeInsets.fromLTRB(0, 10, 30, 10),
-                            child: Text(
-                              'Forget Pin?',
-                              style: TextStyle(
-                                color: Color(0xFF013D5A),
-                                fontFamily: 'RedHatDisplay',
+                            child: GestureDetector( // ✨ WRAPPED WITH GESTUREDETECTOR
+                              onTap: () {
+                                // ✨ ADDED NAVIGATION
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => ForgotPasswordPage()),
+                                );
+                              },
+                              child: Text(
+                                'Forgot Password?', // ✨ TEXT CHANGED
+                                style: TextStyle(
+                                  color: Color(0xFF013D5A),
+                                  fontFamily: 'RedHatDisplay',
+                                  fontWeight: FontWeight.bold, // Added bold to make it look more like a link
+                                ),
                               ),
                             ),
                           ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
                             child: GestureDetector(
-                                onTap: () async {
-                                  if (_loginFormKey.currentState!.validate()) {
-                                    final userCredential = await firebaseServices.loginWithEmail(
-                                      _loginEmailController.text.trim(),
-                                      _loginPasswordController.text.trim(),
+                              onTap: () async {
+                                if (_loginFormKey.currentState!.validate()) {
+                                  final userCredential =
+                                  await firebaseServices.loginWithEmail(
+                                    _loginEmailController.text.trim(),
+                                    _loginPasswordController.text.trim(),
+                                  );
+                                  if (userCredential != null) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => HomePage()),
                                     );
-                                    if (userCredential != null) {
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(builder: (_) => HomePage()),
-                                      );
-                                    }
                                   }
-                                },
+                                }
+                              },
                               child: Container(
                                 height: 60,
                                 decoration: BoxDecoration(
@@ -268,14 +316,21 @@ class _loginState extends State<login> {
                             padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
                             child: GestureDetector(
                               onTap: () async {
-                                final userCredential = await firebaseServices.signInWithGoogle();
-                                if(userCredential != null) {
+                                final userCredential =
+                                await firebaseServices.signInWithGoogle();
+                                if (userCredential != null &&
+                                    userCredential.user != null) {
+                                  // ✨ NEW: Ensure profile exists on Google login
+                                  await createUserProfile(userCredential.user!);
+
+                                  if (!mounted)
+                                    return; // ✨ NEW: mounted check
                                   Navigator.pushReplacement(
                                     context,
-                                    MaterialPageRoute(builder: (_) => HomePage()),
+                                    MaterialPageRoute(
+                                        builder: (_) => HomePage()),
                                   );
                                 }
-
                               },
                               child: Container(
                                 height: 60,
@@ -305,7 +360,6 @@ class _loginState extends State<login> {
                               ),
                             ),
                           ),
-
                         ],
                       ),
                     ),
@@ -339,7 +393,8 @@ class _loginState extends State<login> {
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Color(0xFFFCF3E3),
-                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    border: Border.all(
+                                        color: Color(0xFF013D5A), width: 3),
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
@@ -371,7 +426,8 @@ class _loginState extends State<login> {
                                       if (value == null || value.isEmpty) {
                                         return 'Please enter your email';
                                       }
-                                      final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                                      final emailRegex = RegExp(
+                                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
                                       if (!emailRegex.hasMatch(value)) {
                                         return 'Please enter a valid email address';
                                       }
@@ -390,7 +446,8 @@ class _loginState extends State<login> {
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Color(0xFFFCF3E3),
-                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    border: Border.all(
+                                        color: Color(0xFF013D5A), width: 3),
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
@@ -420,11 +477,14 @@ class _loginState extends State<login> {
                                       suffixIcon: GestureDetector(
                                         onTap: () {
                                           setState(() {
-                                            _isSignupPasswordVisible = !_isSignupPasswordVisible;
+                                            _isSignupPasswordVisible =
+                                            !_isSignupPasswordVisible;
                                           });
                                         },
                                         child: Icon(
-                                          _isSignupPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                          _isSignupPasswordVisible
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
                                           size: 40,
                                           color: Color(0xFFA6CB4E),
                                         ),
@@ -447,7 +507,9 @@ class _loginState extends State<login> {
                                       if (!RegExp(r'[0-9]').hasMatch(value)) {
                                         return 'Password must contain at least one number';
                                       }
-                                      if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+                                      if (!RegExp(
+                                          r'[!@#$%^&*(),.?":{}|<>]')
+                                          .hasMatch(value)) {
                                         return 'Password must contain at least one special character';
                                       }
                                       return null;
@@ -465,7 +527,8 @@ class _loginState extends State<login> {
                                 Container(
                                   decoration: BoxDecoration(
                                     color: Color(0xFFFCF3E3),
-                                    border: Border.all(color: Color(0xFF013D5A), width: 3),
+                                    border: Border.all(
+                                        color: Color(0xFF013D5A), width: 3),
                                     borderRadius: BorderRadius.circular(12),
                                     boxShadow: [
                                       BoxShadow(
@@ -477,8 +540,10 @@ class _loginState extends State<login> {
                                     ],
                                   ),
                                   child: TextFormField(
-                                    controller: _signupConfirmPasswordController,
-                                    obscureText: !_isSignupConfirmPasswordVisible,
+                                    controller:
+                                    _signupConfirmPasswordController,
+                                    obscureText:
+                                    !_isSignupConfirmPasswordVisible,
                                     decoration: InputDecoration(
                                       hintText: 'Confirm Password',
                                       hintStyle: TextStyle(
@@ -495,11 +560,14 @@ class _loginState extends State<login> {
                                       suffixIcon: GestureDetector(
                                         onTap: () {
                                           setState(() {
-                                            _isSignupConfirmPasswordVisible = !_isSignupConfirmPasswordVisible;
+                                            _isSignupConfirmPasswordVisible =
+                                            !_isSignupConfirmPasswordVisible;
                                           });
                                         },
                                         child: Icon(
-                                          _isSignupConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                          _isSignupConfirmPasswordVisible
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
                                           size: 40,
                                           color: Color(0xFFA6CB4E),
                                         ),
@@ -507,7 +575,8 @@ class _loginState extends State<login> {
                                       border: InputBorder.none,
                                     ),
                                     validator: (value) {
-                                      if (value != _signupPasswordController.text) {
+                                      if (value !=
+                                          _signupPasswordController.text) {
                                         return 'Passwords do not match';
                                       }
                                       return null;
@@ -522,15 +591,36 @@ class _loginState extends State<login> {
                             child: GestureDetector(
                               onTap: () async {
                                 if (_signupFormKey.currentState!.validate()) {
-                                  final userCredential = await firebaseServices.signUpWithEmail(
-                                    _signupEmailController.text.trim(),
-                                    _signupPasswordController.text.trim(),
-                                  );
-                                  if (userCredential != null) {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => OtpPage()),
+                                  try {
+                                    final error =
+                                    await firebaseServices.signUpWithEmail(
+                                      _signupEmailController.text.trim(),
+                                      _signupPasswordController.text.trim(),
                                     );
+
+                                    if (!mounted) return;
+
+                                    if (error == null) {
+                                      // ✨ NEW: Create profile on successful signup
+                                      User? user =
+                                          FirebaseAuth.instance.currentUser;
+                                      if (user != null) {
+                                        await createUserProfile(user);
+                                      }
+
+                                      // Success: navigate to email verification
+                                      Navigator.of(context).pushReplacement(
+                                        MaterialPageRoute(
+                                            builder: (ctx) =>
+                                                EmailVerificationPage()),
+                                      );
+                                    } else {
+                                      // Error: show error message
+                                      showErrorToUser(context, error);
+                                    }
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    showErrorToUser(context, "Signup failed: $e");
                                   }
                                 }
                               },
@@ -566,7 +656,23 @@ class _loginState extends State<login> {
                             padding: const EdgeInsets.fromLTRB(30, 10, 30, 10),
                             child: GestureDetector(
                               onTap: () async {
+                                // ✨ NEW: Updated Google Sign-Up logic
+                                final userCredential =
                                 await firebaseServices.signInWithGoogle();
+                                if (userCredential != null &&
+                                    userCredential.user != null) {
+                                  // ✨ NEW: Ensure profile exists on Google signup
+                                  await createUserProfile(userCredential.user!);
+
+                                  if (!mounted)
+                                    return; // ✨ NEW: mounted check
+                                  // ✨ NEW: Navigate to home on success
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => HomePage()),
+                                  );
+                                }
                               },
                               child: Container(
                                 height: 60,

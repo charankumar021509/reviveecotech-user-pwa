@@ -1,12 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:revive_eco_tech_app/Add_Address.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✨ NEW
+import 'package:cloud_firestore/cloud_firestore.dart'; // ✨ NEW
 
 class SchedulePickup extends StatefulWidget {
   @override
   State<SchedulePickup> createState() => _SchedulePickupState();
 }
+
 TextEditingController dateController = TextEditingController();
+
 class _SchedulePickupState extends State<SchedulePickup> {
   Map<String, bool> scrapTypes = {
     'Paper': false,
@@ -15,11 +19,17 @@ class _SchedulePickupState extends State<SchedulePickup> {
     'Metal': false,
     // 'E-Waste': false,
     'Others': false,
-
-
   };
   double _currentWeight = 250.0; // default mid-value for range 0–500
   late TextEditingController _controller;
+  final TextEditingController _descriptionController = TextEditingController();
+
+  // ✨ NEW State Variables
+  List<DocumentSnapshot> _addresses = [];
+  DocumentSnapshot? _selectedAddress;
+  bool _isLoadingAddresses = true;
+  String? _selectedTimeSlot;
+  bool _isSubmitting = false;
 
   void showCustomPopup(BuildContext context) {
     showDialog(
@@ -57,9 +67,12 @@ class _SchedulePickupState extends State<SchedulePickup> {
                       padding: const EdgeInsets.symmetric(vertical: 4.0),
                       child: GestureDetector(
                         onTap: () {
-                          setState(() {
+                          setState(() { // This is the dialog's setState
                             selectedIndex = index;
                           });
+                          // ✨ UPDATED: Store the value and close the dialog
+                          Navigator.of(context).pop(); // Close the dialog
+                          _onTimeSlotSelected(slots[index]); // Call main widget function
                         },
                         child: Container(
                           decoration: BoxDecoration(
@@ -89,17 +102,6 @@ class _SchedulePickupState extends State<SchedulePickup> {
                     );
                   }),
                   SizedBox(height: 24),
-                  // ElevatedButton(
-                  //   onPressed: () => Navigator.of(context).pop(),
-                  //   style: ElevatedButton.styleFrom(
-                  //     padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  //     backgroundColor: Color(0xFFA6CB4E),
-                  //     shape: RoundedRectangleBorder(
-                  //       borderRadius: BorderRadius.circular(30),
-                  //     ),
-                  //   ),
-                  //   child: Text('OK'),
-                  // )
                 ],
               ),
             ),
@@ -109,11 +111,48 @@ class _SchedulePickupState extends State<SchedulePickup> {
     );
   }
 
+  // ✨ NEW: Function to handle time slot selection
+  void _onTimeSlotSelected(String slot) {
+    setState(() {
+      _selectedTimeSlot = slot;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: _currentWeight.round().toString());
+    _fetchAddresses(); // ✨ NEW: Fetch addresses on init
+  }
+
+  // ✨ NEW: Function to fetch user's addresses
+  Future<void> _fetchAddresses() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _isLoadingAddresses = false);
+      return;
+    }
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('addresses')
+          .orderBy('createdAt', descending: true) // Show newest first
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _addresses = querySnapshot.docs;
+          _isLoadingAddresses = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAddresses = false);
+        _showSnackBar("Failed to load addresses: $e", isError: true);
+      }
+    }
   }
 
   void _updateWeightFromInput(String input) {
@@ -124,7 +163,75 @@ class _SchedulePickupState extends State<SchedulePickup> {
       });
     }
   }
-  final TextEditingController _descriptionController = TextEditingController();
+
+  // ✨ NEW: Function to show a snackbar
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: TextStyle(color: Colors.white)),
+        backgroundColor: isError ? Colors.red : Color(0xFFA6CB4E),
+      ),
+    );
+  }
+
+  // ✨ NEW: Function to handle the submit logic
+  Future<void> _submitPickup() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // 1. Validations
+    if (user == null) {
+      _showSnackBar("You must be logged in.", isError: true);
+      return;
+    }
+    if (_selectedAddress == null) {
+      _showSnackBar("Please select a pickup address.", isError: true);
+      return;
+    }
+    if (dateController.text.isEmpty) {
+      _showSnackBar("Please select a pickup date.", isError: true);
+      return;
+    }
+    if (_selectedTimeSlot == null) {
+      _showSnackBar("Please select a time slot.", isError: true);
+      return;
+    }
+    final selectedScraps =
+    scrapTypes.entries.where((e) => e.value).map((e) => e.key).toList();
+    if (selectedScraps.isEmpty) {
+      _showSnackBar("Please select at least one scrap type.", isError: true);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // 2. Prepare Data
+      final pickupDate = DateTime.parse(dateController.text);
+      final addressData = _selectedAddress!.data() as Map<String, dynamic>;
+
+      // 3. Save to 'pickups' collection
+      await FirebaseFirestore.instance.collection('pickups').add({
+        'userId': user.uid,
+        'addressId': _selectedAddress!.id,
+        'addressDetails': addressData, // Store a copy for easy access
+        'pickupDate': Timestamp.fromDate(pickupDate),
+        'pickupTimeSlot': _selectedTimeSlot,
+        'scrapTypes': selectedScraps,
+        'estimatedWeight': _currentWeight.round(),
+        'description': _descriptionController.text.trim(),
+        'status': 'Pending', // Initial status
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      _showSnackBar("Pickup scheduled successfully!");
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      _showSnackBar("Failed to schedule pickup: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +239,8 @@ class _SchedulePickupState extends State<SchedulePickup> {
       backgroundColor: Color(0xFFFCF3E3),
       appBar: AppBar(
         centerTitle: true,
-        title: Text('Schedule Pickup',
+        title: Text(
+          'Schedule Pickup',
           style: TextStyle(
             fontFamily: 'RedHatDisplay',
             fontWeight: FontWeight.bold,
@@ -141,20 +249,19 @@ class _SchedulePickupState extends State<SchedulePickup> {
             color: Color(0xFFFCF3E3),
           ),
         ),
-
         backgroundColor: Color(0xFF013D5A),
         leading: IconButton(
           icon: Transform.rotate(
             angle: 1.57, // 180 degrees in radians
-            child: Icon(Icons.u_turn_left,
-              color: Colors.white,),
+            child: Icon(
+              Icons.u_turn_left,
+              color: Colors.white,
+            ),
           ),
           onPressed: () {
             Navigator.pop(context); // Navigate back to the previous screen
-            // Handle back button press
           },
         ),
-
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -162,11 +269,9 @@ class _SchedulePickupState extends State<SchedulePickup> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Container(
-                // height: 150,
                 decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12)
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                   child: Column(
@@ -176,44 +281,86 @@ class _SchedulePickupState extends State<SchedulePickup> {
                         child: Row(
                           children: [
                             Icon(Icons.location_on),
-                            Text("Pickup Location",
+                            Text(
+                              "Pickup Location",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                              ),),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      Container(
+                      // ✨ UPDATED: Address Dropdown
+                      _isLoadingAddresses
+                          ? Center(child: CircularProgressIndicator())
+                          : _addresses.isEmpty
+                          ? Container(
                         decoration: BoxDecoration(
-                            border: Border.all(width: 1, color: Colors.black)
+                            border: Border.all(
+                                width: 1, color: Colors.black)),
+                        child: Center(
+                            child: Padding(
+                              padding:
+                              const EdgeInsets.fromLTRB(5, 5, 0, 5),
+                              child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'No addresses found. Add one below.',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                    ),
+                                  )),
+                            )),
+                      )
+                          : DropdownButtonFormField<DocumentSnapshot>(
+                        value: _selectedAddress,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10),
                         ),
-                        child: Center(child: Padding(
-                          padding: const EdgeInsets.fromLTRB(5, 5, 0, 5),
-                          child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text('Select Address',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )),
-                        )),
+                        hint: Text('Select Address'),
+                        items: _addresses.map((doc) {
+                          final data =
+                          doc.data() as Map<String, dynamic>;
+                          return DropdownMenuItem<DocumentSnapshot>(
+                            value: doc,
+                            child: Text(
+                              '${data['addressType']}: ${data['line1']}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedAddress = value;
+                          });
+                        },
                       ),
                       GestureDetector(
-                        onTap: (){
-                          Navigator.push(context, MaterialPageRoute(builder: (context)=>AddAddress()),
+                        onTap: () async {
+                          // ✨ UPDATED: Refresh list on return
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => AddAddress()),
                           );
+                          // Refresh addresses after coming back
+                          setState(() => _isLoadingAddresses = true);
+                          _fetchAddresses();
                         },
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(0, 5, 0, 0),
                           child: Align(
                               alignment: Alignment.centerLeft,
-                              child: Text('+Add new address',
+                              child: Text(
+                                '+Add new address',
                                 style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.bold
-                                ),
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF013D5A)),
                               )),
                         ),
                       )
@@ -225,11 +372,9 @@ class _SchedulePickupState extends State<SchedulePickup> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Container(
-                // height: 150,
                 decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12)
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                   child: Column(
@@ -239,11 +384,13 @@ class _SchedulePickupState extends State<SchedulePickup> {
                         child: Row(
                           children: [
                             Icon(Icons.calendar_month),
-                            Text("Date & Time",
+                            Text(
+                              "Date & Time",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                              ),),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -254,24 +401,25 @@ class _SchedulePickupState extends State<SchedulePickup> {
                               padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
                               child: Container(
                                 decoration: BoxDecoration(
-                                    border: Border.all(width: 1, color: Colors.black)
-                                ),
-                                child: Center(child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(5, 0, 0, 0),
-                                  child: Align(
-                                      alignment: Alignment.center,
-                                      child: TextFormField(
-                                        controller: dateController,
-                                        decoration: InputDecoration(
-                                          labelText: "Select Date",
-                                          // filled: true,
-                                        ),
-                                        readOnly: true,
-                                        onTap: (){
-                                          _selectDate();
-                                        },
-                                      )),
-                                )),
+                                    border: Border.all(
+                                        width: 1, color: Colors.black)),
+                                child: Center(
+                                    child: Padding(
+                                      padding:
+                                      const EdgeInsets.fromLTRB(5, 0, 0, 0),
+                                      child: Align(
+                                          alignment: Alignment.center,
+                                          child: TextFormField(
+                                            controller: dateController,
+                                            decoration: InputDecoration(
+                                              labelText: "Select Date",
+                                            ),
+                                            readOnly: true,
+                                            onTap: () {
+                                              _selectDate();
+                                            },
+                                          )),
+                                    )),
                               ),
                             ),
                           ),
@@ -281,20 +429,26 @@ class _SchedulePickupState extends State<SchedulePickup> {
                               child: GestureDetector(
                                 onTap: () => showCustomPopup(context),
                                 child: Container(
+                                  height: 60, // Match TextFormField height
                                   decoration: BoxDecoration(
-                                      border: Border.all(width: 1, color: Colors.black)
-                                  ),
-                                  child: Center(child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(5, 5, 0, 5),
-                                    child: Align(
-                                        alignment: Alignment.center,
-                                        child: Text('Select Time Slot',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        )),
-                                  )),
+                                      border: Border.all(
+                                          width: 1, color: Colors.black)),
+                                  child: Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                            5, 5, 5, 5),
+                                        child: Align(
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              // ✨ UPDATED: Show selected slot
+                                              _selectedTimeSlot ?? 'Select Time Slot',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            )),
+                                      )),
                                 ),
                               ),
                             ),
@@ -309,11 +463,9 @@ class _SchedulePickupState extends State<SchedulePickup> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Container(
-                // height: 150,
                 decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12)
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                   child: Column(
@@ -323,11 +475,13 @@ class _SchedulePickupState extends State<SchedulePickup> {
                         child: Row(
                           children: [
                             Icon(Icons.recycling),
-                            Text("Type of Scrap",
+                            Text(
+                              "Type of Scrap",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                              ),),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -347,12 +501,14 @@ class _SchedulePickupState extends State<SchedulePickup> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Padding(
-                                      padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
+                                      padding: const EdgeInsets.fromLTRB(
+                                          0, 0, 0, 0),
                                       child: Checkbox(
                                         value: entry.value,
                                         onChanged: (bool? newValue) {
                                           setState(() {
-                                            scrapTypes[entry.key] = newValue ?? false;
+                                            scrapTypes[entry.key] =
+                                                newValue ?? false;
                                           });
                                         },
                                       ),
@@ -366,11 +522,11 @@ class _SchedulePickupState extends State<SchedulePickup> {
                               padding: const EdgeInsets.fromLTRB(0, 5, 0, 0),
                               child: Align(
                                   alignment: Alignment.centerLeft,
-                                  child: Text('Add Description(Optional)',
+                                  child: Text(
+                                    'Add Description(Optional)',
                                     style: TextStyle(
                                         fontSize: 16,
-                                        fontWeight: FontWeight.bold
-                                    ),
+                                        fontWeight: FontWeight.bold),
                                   )),
                             ),
                             Padding(
@@ -396,11 +552,9 @@ class _SchedulePickupState extends State<SchedulePickup> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
               child: Container(
-                // height: 150,
                 decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12)
-                ),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                   child: Column(
@@ -410,34 +564,39 @@ class _SchedulePickupState extends State<SchedulePickup> {
                         child: Row(
                           children: [
                             Icon(Icons.monitor_weight_outlined),
-                            Text("Estimated weight",
+                            Text(
+                              "Estimated weight",
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                              ),),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      SliderTheme(data: SliderTheme.of(context).copyWith(
-                            activeTrackColor: Colors.green.shade700,
-                            inactiveTrackColor: Colors.grey.shade300,
-                            thumbColor: Colors.green.shade800,
-                            overlayColor: Colors.green.withOpacity(0.2),
-                            valueIndicatorTextStyle: TextStyle(color: Colors.white),
-                          ),
+                      SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: Colors.green.shade700,
+                          inactiveTrackColor: Colors.grey.shade300,
+                          thumbColor: Colors.green.shade800,
+                          overlayColor: Colors.green.withOpacity(0.2),
+                          valueIndicatorTextStyle:
+                          TextStyle(color: Colors.white),
+                        ),
                         child: Slider(
-                        value: _currentWeight,
-                        min: 0,
-                        max: 500,
-                        divisions: 500,
-                        label: '${_currentWeight.round()} kg',
-                        onChanged: (value) {
-                          setState(() {
-                            _currentWeight = value;
-                            _controller.text = value.round().toString();
-                          });
-                        },
-                      ),),
+                          value: _currentWeight,
+                          min: 0,
+                          max: 500,
+                          divisions: 500,
+                          label: '${_currentWeight.round()} kg',
+                          onChanged: (value) {
+                            setState(() {
+                              _currentWeight = value;
+                              _controller.text = value.round().toString();
+                            });
+                          },
+                        ),
+                      ),
                       TextField(
                         controller: _controller,
                         keyboardType: TextInputType.number,
@@ -459,32 +618,40 @@ class _SchedulePickupState extends State<SchedulePickup> {
                       SizedBox(height: 10),
                       Text(
                         '${_currentWeight.round()} kg selected',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
+            // ✨ UPDATED: Submit Button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Color(0xFFA6CB4E),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      spreadRadius: 3,
-                      blurRadius: 5,
-                      offset: Offset(4, 4),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+              child: GestureDetector(
+                onTap: _isSubmitting ? null : _submitPickup,
+                child: Container(
+                  height: 60, // Give it a fixed height
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: Color(0xFFA6CB4E),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        spreadRadius: 3,
+                        blurRadius: 5,
+                        offset: Offset(4, 4),
+                      ),
+                    ],
+                  ),
                   child: Center(
-                    child: Text(
+                    child: _isSubmitting
+                        ? CircularProgressIndicator(
+                      valueColor:
+                      AlwaysStoppedAnimation<Color>(Color(0xFFFCF3E3)),
+                    )
+                        : Text(
                       'Submit',
                       style: TextStyle(
                         fontFamily: 'RedHatDisplay',
@@ -497,22 +664,26 @@ class _SchedulePickupState extends State<SchedulePickup> {
                 ),
               ),
             ),
-            SizedBox(height: 40,)
+            SizedBox(
+              height: 40,
+            )
           ],
         ),
       ),
     );
   }
-  Future <void> _selectDate() async {
+
+  Future<void> _selectDate() async {
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now(), // User cannot select a past date
       lastDate: DateTime(2101),
     );
     if (pickedDate != null) {
       setState(() {
-        dateController.text = pickedDate.toString().split(" ")[0];
+        // Format as YYYY-MM-DD
+        dateController.text = pickedDate.toLocal().toString().split(" ")[0];
       });
     }
   }

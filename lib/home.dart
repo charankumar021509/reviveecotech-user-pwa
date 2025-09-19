@@ -8,10 +8,6 @@ import 'package:revive_eco_tech_app/profile.dart';
 import 'Schedule_Pickup.dart';
 import 'widgets/pickup_tracker.dart';
 
-
-
-
-
 // ==== Constants ====
 const kPrimaryColor = Color(0xFF013856);
 const kAccentColor = Color(0xFFa7cd47);
@@ -32,9 +28,7 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-
   @override
-
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Revive App',
@@ -55,42 +49,58 @@ Color shadowColor = Colors.white; // You can change it to any color
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
-
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  String selectedLocation = 'Barrackpore, Kolkata';
+  // ✨ REMOVED: Old 'selectedLocation' variable
+  // String selectedLocation = 'Barrackpore, Kolkata';
   String userName = "User";
 
-  final List<String> locations = [
-    'Barrackpore, Kolkata',
-    'Salt Lake, Kolkata',
-    'Howrah',
-    'New Town',
-  ];
+  // ✨ NEW: State variables for live data
+  bool _isLoadingStats = true;
+  bool _isLoadingTracker = true;
+  bool _isLoadingScraps = true;
+  double _totalWeight = 0;
+  double _totalEarnings = 0;
+  DocumentSnapshot? _latestPendingPickup;
+  List<MapEntry<String, int>> _topScrapsList = [];
+  Map<String, double> _scrapWeights = {};
+  // ---
 
-  void _changeLocation() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => ListView(
-        children: locations.map((location) => ListTile(
-          title: Text(location),
-          onTap: () {
-            setState(() => selectedLocation = location);
-            Navigator.pop(context);
-          },
-        )).toList(),
-      ),
-    );
-  }
+  // ✨ REMOVED: Old 'locations' list
+  // final List<String> locations = [
+  //   'Barrackpore, Kolkata',
+  //   'Salt Lake, Kolkata',
+  //   'Howrah',
+  //   'New Town',
+  // ];
+
+  // ✨ REMOVED: Old '_changeLocation' function
+  // void _changeLocation() {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     builder: (context) => ListView(
+  //       children: locations
+  //           .map((location) => ListTile(
+  //         title: Text(location),
+  //         onTap: () {
+  //           setState(() => selectedLocation = location);
+  //           Navigator.pop(context);
+  //         },
+  //       ))
+  //           .toList(),
+  //     ),
+  //   );
+  // }
 
   Widget upcomingCard(String label, String assetPath) {
     return Stack(
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.asset(assetPath, height: 200, width: 200, fit: BoxFit.cover),
+          child: Image.asset(assetPath,
+              height: 200, width: 200, fit: BoxFit.cover),
         ),
         Positioned(
           bottom: 8,
@@ -101,7 +111,8 @@ class _HomePageState extends State<HomePage> {
               color: shadowColor.withAlpha((0.8 * 255).toInt()),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            child:
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         )
       ],
@@ -118,27 +129,43 @@ class _HomePageState extends State<HomePage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.asset(iconAssetPath, width: 60, height: 60, fit: BoxFit.cover),
+              child: Image.asset(iconAssetPath,
+                  width: 60, height: 60, fit: BoxFit.cover),
             ),
-            //Image.asset(iconAssetPath, width: 60, height: 60),
             const SizedBox(width: 16),
-            Expanded(child: Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            Expanded(
+                child: Text(name,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold))),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.start, // Adjust alignment for better positioning
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start, // Adjust alignment for better positioning
                   children: [
-                    Text("$times", style: const TextStyle(color: kAccentColor, fontSize: 23, fontWeight: FontWeight.bold)),
-                    Text("Times", style: TextStyle(color: Colors.grey[800], fontSize: 14)),
+                    Text("$times",
+                        style: const TextStyle(
+                            color: kAccentColor,
+                            fontSize: 23,
+                            fontWeight: FontWeight.bold)),
+                    Text("Times",
+                        style: TextStyle(color: Colors.grey[800], fontSize: 14)),
                   ],
                 ),
                 const SizedBox(width: 40), // Adds space between the columns
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("$kg", style: const TextStyle(color: kAccentColor, fontSize: 23, fontWeight: FontWeight.bold)),
-                    Text("in kg", style: TextStyle(color: Colors.grey[800], fontSize: 14)), // Modified label to match left-side format
+                    Text("$kg",
+                        style: const TextStyle(
+                            color: kAccentColor,
+                            fontSize: 23,
+                            fontWeight: FontWeight.bold)),
+                    Text("in kg",
+                        style: TextStyle(
+                            color: Colors.grey[800],
+                            fontSize: 14)), // Modified label to match left-side format
                   ],
                 ),
               ],
@@ -149,19 +176,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   Widget buildCroppedAssetCard(String path, double topTrim, double bottomTrim) {
     return ClipRect(
       clipper: UnevenCropClipper(topTrim: topTrim, bottomTrim: bottomTrim),
       child: Image.asset(path, fit: BoxFit.cover, width: double.infinity),
     );
   }
+
   int _CurrentIndex = 0;
   @override
   @override
   void initState() {
     super.initState();
+    // Fetch all data when the page loads
     fetchUserName();
+    _fetchStatsAndScraps();
+    _fetchLatestPickup();
   }
 
   Future<void> fetchUserName() async {
@@ -169,9 +199,10 @@ class _HomePageState extends State<HomePage> {
 
     if (user != null) {
       if (user.displayName != null && user.displayName!.isNotEmpty) {
-        setState(() {
-          userName = user.displayName!;
-        });
+        if (mounted)
+          setState(() {
+            userName = user.displayName!;
+          });
       } else {
         final doc = await FirebaseFirestore.instance
             .collection("users")
@@ -179,12 +210,149 @@ class _HomePageState extends State<HomePage> {
             .get();
 
         if (doc.exists && doc.data()!.containsKey("name")) {
-          setState(() {
-            userName = doc["name"];
-          });
+          if (mounted)
+            setState(() {
+              userName = doc["name"];
+            });
+        } else {
+          // fallback to default
+          if (mounted)
+            setState(() {
+              userName = "User-${user.uid.substring(0, 6)}";
+            });
         }
       }
     }
+  }
+
+  // ✨ NEW: Function to get stats and top scraps from COMPLETED pickups
+  Future<void> _fetchStatsAndScraps() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted)
+        setState(() {
+          _isLoadingStats = false;
+          _isLoadingScraps = false;
+        });
+      return;
+    }
+
+    double tempTotalWeight = 0;
+    double tempTotalEarnings = 0;
+    Map<String, int> tempScrapTimes = {};
+    Map<String, double> tempScrapWeights = {};
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('pickups')
+          .where('userId', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'Completed')
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final weight = (data['finalWeight'] ?? 0).toDouble();
+        final amount = (data['amount'] ?? 0).toDouble();
+
+        tempTotalWeight += weight;
+        tempTotalEarnings += amount;
+
+        List<String> scraps = List<String>.from(data['scrapTypes'] ?? []);
+        // Approx weight per type (can be refined)
+        double weightPerType = weight / (scraps.isEmpty ? 1 : scraps.length);
+
+        for (String scrap in scraps) {
+          tempScrapTimes[scrap] = (tempScrapTimes[scrap] ?? 0) + 1;
+          tempScrapWeights[scrap] =
+              (tempScrapWeights[scrap] ?? 0) + weightPerType;
+        }
+      }
+
+      // Sort scraps by frequency
+      final sortedByTimes = tempScrapTimes.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
+      if (mounted) {
+        setState(() {
+          _totalWeight = tempTotalWeight;
+          _totalEarnings = tempTotalEarnings;
+          _isLoadingStats = false;
+
+          _topScrapsList = sortedByTimes.take(3).toList();
+          _scrapWeights = tempScrapWeights;
+          _isLoadingScraps = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching stats: $e");
+      if (mounted)
+        setState(() {
+          _isLoadingStats = false;
+          _isLoadingScraps = false;
+        });
+    }
+  }
+
+  // ✨ NEW: Function to get the SOONEST PENDING pickup for the tracker
+  Future<void> _fetchLatestPickup() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoadingTracker = false);
+      return;
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('pickups')
+          .where('userId', isEqualTo: user.uid)
+          .where('status',
+          whereIn: ['Pending', 'Confirmed', 'Out-for-Pickup'])
+          .orderBy('pickupDate') // Ascending to get the soonest
+          .limit(1)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _latestPendingPickup = snapshot.docs.firstOrNull;
+          _isLoadingTracker = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching latest pickup: $e");
+      if (mounted) setState(() => _isLoadingTracker = false);
+    }
+  }
+
+  // ✨ NEW: Helper to map Firestore status to tracker step
+  int _mapStatusToStep(String? status) {
+    switch (status) {
+      case 'Pending':
+        return 1;
+      case 'Confirmed':
+        return 2;
+      case 'Out-for-Pickup':
+        return 3;
+      case 'Completed':
+        return 4;
+      default:
+        return 0; // No active pickup
+    }
+  }
+
+  // ✨ NEW: Helper to get icon path for scrap type
+  String _getIconForScrap(String scrapName) {
+    final name = scrapName.toLowerCase();
+    if (name.contains('metal')) {
+      return 'assets/images/home/scraps/metal.png';
+    }
+    if (name.contains('bottle') || name.contains('plastic')) {
+      return 'assets/images/home/scraps/bottle.png';
+    }
+    if (name.contains('paper') || name.contains('newspaper')) {
+      return 'assets/images/home/scraps/newspaper.png';
+    }
+    // Default icon
+    return 'assets/images/home/scraps/bottle.png';
   }
 
   Widget build(BuildContext context) {
@@ -203,7 +371,8 @@ class _HomePageState extends State<HomePage> {
                 height: 240,
                 decoration: BoxDecoration(
                   color: kPrimaryColor,
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+                  borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(40)),
                   image: const DecorationImage(
                     image: AssetImage('assets/images/home/homeheader.png'),
                     fit: BoxFit.cover,
@@ -223,22 +392,26 @@ class _HomePageState extends State<HomePage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => profile()),
+                                MaterialPageRoute(
+                                    builder: (context) => profile()),
                               );
                             },
                             child: const CircleAvatar(
                               radius: 23,
                               backgroundColor: Color(0xFFa8ce4c),
-                              child: Icon(Icons.account_circle, color: kPrimaryColor, size: 45),
+                              child: Icon(Icons.account_circle,
+                                  color: kPrimaryColor, size: 45),
                             ),
                           ),
                           const SizedBox(width: 18),
                           Column(
-                            mainAxisAlignment: MainAxisAlignment.center, // This helps!
+                            mainAxisAlignment:
+                            MainAxisAlignment.center, // This helps!
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(top: 23.0), // Adjust this value to move text downward
+                                padding: const EdgeInsets.only(
+                                    top: 23.0), // Adjust this value to move text downward
                                 child: Row(
                                   children: [
                                     Text(
@@ -249,30 +422,19 @@ class _HomePageState extends State<HomePage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    // const Text(
-                                    //   '!',
-                                    //   style: TextStyle(
-                                    //     fontSize: 21,
-                                    //     color: kAccentColor,
-                                    //     fontWeight: FontWeight.bold,
-                                    //   ),
-                                    // ),
                                   ],
                                 ),
-
                               ),
+                              // ✨ UPDATED: Static Location Row
                               Row(
                                 children: [
-                                  Icon(Icons.location_on, color: kAccentColor, size: 18),
+                                  Icon(Icons.location_on,
+                                      color: kAccentColor, size: 18),
                                   SizedBox(width: 4),
-                                  Text(selectedLocation,
-                                      style: const TextStyle(fontSize: 14, color: Colors.white)),
-                                  IconButton(
-                                    icon: const Icon(Icons.keyboard_arrow_down, color: kAccentColor),
-                                    onPressed: _changeLocation,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
+                                  Text("Andhra Pradesh", // ✨ SET TO STATIC TEXT
+                                      style: const TextStyle(
+                                          fontSize: 14, color: Colors.white)),
+                                  // ✨ REMOVED: IconButton for dropdown
                                 ],
                               ),
                             ],
@@ -283,7 +445,8 @@ class _HomePageState extends State<HomePage> {
                     // Notification Icon on the right
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0),
-                      child: Icon(Icons.notifications, color: kAccentColor, size: 30),
+                      child:
+                      Icon(Icons.notifications, color: kAccentColor, size: 30),
                     ),
                   ],
                 ),
@@ -299,15 +462,30 @@ class _HomePageState extends State<HomePage> {
                     color: kCreamLight,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 12, offset: const Offset(0, 13)),
+                      BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 12,
+                          offset: const Offset(0, 13)),
                     ],
                   ),
-                  child: Row(
+                  child: _isLoadingStats
+                      ? Center(child: CircularProgressIndicator())
+                  // ✨ UPDATED: Live Stats
+                      : Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: const [
-                      StatCard(icon: Icons.recycling, label: '0 kg', sub: 'Total Recycled'),
-                      StatCard(icon: Icons.cloud, label: '0 m³', sub: 'Saved CO₂'),
-                      StatCard(icon: Icons.currency_rupee, label: '₹0', sub: 'Total Earnings'),
+                    children: [
+                      StatCard(
+                          icon: Icons.recycling,
+                          label: '${_totalWeight.toStringAsFixed(1)} kg',
+                          sub: 'Total Recycled'),
+                      StatCard(
+                          icon: Icons.cloud,
+                          label: '0 m³',
+                          sub: 'Saved CO₂'), // Left as 0
+                      StatCard(
+                          icon: Icons.currency_rupee,
+                          label: '₹${_totalEarnings.toStringAsFixed(0)}',
+                          sub: 'Total Earnings'),
                     ],
                   ),
                 ),
@@ -320,31 +498,45 @@ class _HomePageState extends State<HomePage> {
                 buildCroppedAssetCard("assets/images/home/14.png", 0, 0),
               ]),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            PickupTracker(currentStep: 2),
+              // ✨ UPDATED: Live Pickup Tracker
+              _isLoadingTracker
+                  ? SizedBox(
+                  height: 100,
+                  child: Center(child: CircularProgressIndicator()))
+                  : _latestPendingPickup == null
+                  ? Center(
+                  child: Text(
+                    "No upcoming pickups. Schedule one!",
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ))
+                  : PickupTracker(
+                currentStep: _mapStatusToStep(
+                    _latestPendingPickup!['status'] as String?),
+              ),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: 0, left: 12.0),
-                  child: Align(
-                    alignment: Alignment.centerLeft, // Aligns text to the left
-                    child: Text(
-                      'Shortcuts',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  )
-                ),
+                    padding: EdgeInsets.only(bottom: 0, left: 12.0),
+                    child: Align(
+                      alignment: Alignment.centerLeft, // Aligns text to the left
+                      child: Text(
+                        'Shortcuts',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    )),
               ),
 
               // ==== Shortcuts Grid ====
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
-                  // height: 120, // Define a fixed height
                   child: GridView.count(
                     crossAxisCount: 4,
                     crossAxisSpacing: 5,
@@ -356,14 +548,24 @@ class _HomePageState extends State<HomePage> {
                         icon: Icons.list,
                         label: 'Price List \n',
                         onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => pricelist()));
+                          Navigator.push(
+                              context, MaterialPageRoute(builder: (_) => pricelist()));
                         },
                       ),
                       ShortcutButton(
                         icon: Icons.schedule,
                         label: 'Schedule \n Pick-up',
                         onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => SchedulePickup()));
+                          // ✨ UPDATED: Refresh data after returning from SchedulePickup
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => SchedulePickup()))
+                              .then((_) {
+                            // When we come back, refresh the tracker
+                            setState(() => _isLoadingTracker = true);
+                            _fetchLatestPickup();
+                          });
                         },
                       ),
                       ShortcutButton(
@@ -407,7 +609,8 @@ class _HomePageState extends State<HomePage> {
                       children: const [
                         Text(
                           "Upcoming Drives",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 18),
                         ),
                         Text(
                           "View all",
@@ -423,8 +626,10 @@ class _HomePageState extends State<HomePage> {
                         itemCount: cardList.length, // List of card details
                         itemBuilder: (context, index) {
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 5.0),
-                            child: upcomingCard(cardList[index].title, cardList[index].image),
+                            padding:
+                            const EdgeInsets.symmetric(horizontal: 5.0),
+                            child: upcomingCard(cardList[index].title,
+                                cardList[index].image),
                           );
                         },
                       ),
@@ -436,14 +641,32 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
-                        Text("Most Recycled Scraps", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        Text("Most Recycled Scraps",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 18)),
                         Text("View all", style: TextStyle(color: Colors.green)),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    scrapCard("Metal", "10", "90", "assets/images/home/scraps/metal.png"),
-                    scrapCard("Bottle", "05", "35", "assets/images/home/scraps/bottle.png"),
-                    scrapCard("Newspaper", "00", "80", "assets/images/home/scraps/newspaper.png"),
+
+                    // ✨ UPDATED: Live Scrap List
+                    _isLoadingScraps
+                        ? Center(child: CircularProgressIndicator())
+                        : _topScrapsList.isEmpty
+                        ? Center(
+                        child: Text("No completed pickups yet.",
+                            style: TextStyle(fontSize: 16)))
+                        : Column(
+                      children: _topScrapsList.map((entry) {
+                        final name = entry.key;
+                        final times = entry.value.toString();
+                        final kg = _scrapWeights[name]
+                            ?.toStringAsFixed(1) ??
+                            '0.0';
+                        final iconPath = _getIconForScrap(name);
+                        return scrapCard(name, times, kg, iconPath);
+                      }).toList(),
+                    ),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -453,33 +676,35 @@ class _HomePageState extends State<HomePage> {
         ),
 
         // ==== Bottom Nav ====
-
         bottomNavigationBar: BottomNavigationBar(
           backgroundColor: kGreenLight,
           currentIndex: _CurrentIndex,
           onTap: (index) {
-            if (index == 1) { // If "Market Rates" is clicked
+            if (index == 1) {
+              // If "Market Rates" is clicked
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => pricelist()),
               );
             }
-            if (index == 2) { // If "Market Rates" is clicked
+            if (index == 2) {
+              // If "Settings" is clicked
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => Settings_page()),
               );
-            }else {
+            } else {
               setState(() {
                 _CurrentIndex = index;
               });
             }
           },
-
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.graphic_eq), label: 'Market Rates'),
-            BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.graphic_eq), label: 'Market Rates'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.settings), label: 'Settings'),
           ],
         ),
       ),
@@ -493,7 +718,11 @@ class StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String sub;
-  const StatCard({required this.icon, required this.label, required this.sub, super.key});
+  const StatCard(
+      {required this.icon,
+        required this.label,
+        required this.sub,
+        super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -537,7 +766,8 @@ class ShortcutButton extends StatelessWidget {
             child: Icon(icon, size: 28, color: Colors.white),
           ),
           const SizedBox(height: 3),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+          Text(label,
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -557,14 +787,14 @@ List<CardItem> cardList = [
   // Add more CardItem objects here...
 ];
 
-
 class UnevenCropClipper extends CustomClipper<Rect> {
   final double topTrim;
   final double bottomTrim;
   UnevenCropClipper({required this.topTrim, required this.bottomTrim});
 
   @override
-  Rect getClip(Size size) => Rect.fromLTRB(0, topTrim, size.width, size.height - bottomTrim);
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, topTrim, size.width, size.height - bottomTrim);
 
   @override
   bool shouldReclip(covariant UnevenCropClipper oldClipper) =>
@@ -582,7 +812,6 @@ class ImageCardScroller extends StatefulWidget {
 class _ImageCardScrollerState extends State<ImageCardScroller> {
   final PageController _controller = PageController(viewportFraction: 0.9);
   int _currentIndex = 0;
-
 
   @override
   Widget build(BuildContext context) {
@@ -610,7 +839,9 @@ class _ImageCardScrollerState extends State<ImageCardScroller> {
               width: _currentIndex == index ? 12 : 8,
               height: _currentIndex == index ? 12 : 8,
               decoration: BoxDecoration(
-                color: _currentIndex == index ? const Color(0xFFa8ce4c) : Colors.grey,
+                color: _currentIndex == index
+                    ? const Color(0xFFa8ce4c)
+                    : Colors.grey,
                 shape: BoxShape.circle,
               ),
             );

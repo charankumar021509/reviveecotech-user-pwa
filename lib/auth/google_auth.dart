@@ -55,22 +55,48 @@ class FirebaseServices {
   }
 
   // Email/Password Signup
-  Future<UserCredential?> signUpWithEmail(String email, String password) async {
+  // Future<UserCredential?> signUpWithEmail(String email, String password) async {
+  //   try {
+  //     final userCredential = await auth.createUserWithEmailAndPassword(
+  //       email: email,
+  //       password: password,
+  //     );
+  //     debugPrint('User signed up with email.');
+  //     return userCredential;
+  //   } on FirebaseAuthException catch (e) {
+  //     debugPrint('FirebaseAuthException: ${e.message}');
+  //     return null;
+  //   } catch (e) {
+  //     debugPrint('Error during Email Sign-Up: $e');
+  //     return null;
+  //   }
+  // }
+  Future<String?> signUpWithEmail(String email, String password) async {
     try {
       final userCredential = await auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      debugPrint('User signed up with email.');
-      return userCredential;
+
+      await userCredential.user?.sendEmailVerification();
+
+      return null; // no error
     } on FirebaseAuthException catch (e) {
-      debugPrint('FirebaseAuthException: ${e.message}');
-      return null;
+      switch (e.code) {
+        case 'email-already-in-use':
+          return "This email is already registered.";
+        case 'invalid-email':
+          return "Invalid email format.";
+        case 'weak-password':
+          return "Password is too weak.";
+        default:
+          return "Something went wrong. Please try again.";
+      }
     } catch (e) {
-      debugPrint('Error during Email Sign-Up: $e');
-      return null;
+      return "Unexpected error. Please try again later.";
     }
   }
+
 
   // Email/Password Login
   Future<UserCredential?> loginWithEmail(String email, String password) async {
