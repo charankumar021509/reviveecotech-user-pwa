@@ -2,11 +2,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:revive_eco_tech_app/history.dart';
 import 'package:revive_eco_tech_app/pricelist.dart';
 import 'package:revive_eco_tech_app/setting.dart';
 import 'package:revive_eco_tech_app/profile.dart';
 import 'Schedule_Pickup.dart';
 import 'widgets/pickup_tracker.dart';
+import 'package:revive_eco_tech_app/all_trackers_page.dart';
+import 'package:revive_eco_tech_app/society_campaign_page.dart';
+
+// IMPORTS FOR NEW DRIVE FEATURE
+import 'dart:math'; // For placeholder logic
+import 'package:revive_eco_tech_app/widgets/drive_model.dart'; // Using your path
+import 'package:revive_eco_tech_app/widgets/drive_card.dart';
+import 'package:revive_eco_tech_app/all_drives_page.dart';
+import 'package:revive_eco_tech_app/drive_details_page.dart';
+
+// IMPORT THE BANNER MODEL
+import 'package:revive_eco_tech_app/widgets/banner_model.dart'; // Adjust path if needed
+
+// IMPORT URL_LAUNCHER
+import 'package:url_launcher/url_launcher.dart';
+
 
 // ==== Constants ====
 const kPrimaryColor = Color(0xFF013856);
@@ -52,12 +69,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  // ✨ REMOVED: Old 'selectedLocation' variable
-  // String selectedLocation = 'Barrackpore, Kolkata';
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String userName = "User";
 
-  // ✨ NEW: State variables for live data
+  // State variables for live data
   bool _isLoadingStats = true;
   bool _isLoadingTracker = true;
   bool _isLoadingScraps = true;
@@ -66,34 +81,19 @@ class _HomePageState extends State<HomePage> {
   DocumentSnapshot? _latestPendingPickup;
   List<MapEntry<String, int>> _topScrapsList = [];
   Map<String, double> _scrapWeights = {};
-  // ---
 
-  // ✨ REMOVED: Old 'locations' list
-  // final List<String> locations = [
-  //   'Barrackpore, Kolkata',
-  //   'Salt Lake, Kolkata',
-  //   'Howrah',
-  //   'New Town',
-  // ];
+  // STATE FOR UPCOMING DRIVES
+  bool _isLoadingDrives = true;
+  List<Drive> _homePageDrives = [];
 
-  // ✨ REMOVED: Old '_changeLocation' function
-  // void _changeLocation() {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     builder: (context) => ListView(
-  //       children: locations
-  //           .map((location) => ListTile(
-  //         title: Text(location),
-  //         onTap: () {
-  //           setState(() => selectedLocation = location);
-  //           Navigator.pop(context);
-  //         },
-  //       ))
-  //           .toList(),
-  //     ),
-  //   );
-  // }
+  // STATE FOR BANNERS
+  bool _isLoadingBanners = true;
+  List<BannerModel> _banners = [];
 
+  // STATE FOR NAVIGATION
+  int _currentIndex = 0;
+
+  // ... (upcomingCard, scrapCard, buildCroppedAssetCard... no changes) ...
   Widget upcomingCard(String label, String assetPath) {
     return Stack(
       children: [
@@ -142,7 +142,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Column(
                   crossAxisAlignment:
-                  CrossAxisAlignment.start, // Adjust alignment for better positioning
+                  CrossAxisAlignment.start,
                   children: [
                     Text("$times",
                         style: const TextStyle(
@@ -153,7 +153,7 @@ class _HomePageState extends State<HomePage> {
                         style: TextStyle(color: Colors.grey[800], fontSize: 14)),
                   ],
                 ),
-                const SizedBox(width: 40), // Adds space between the columns
+                const SizedBox(width: 40),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -165,7 +165,7 @@ class _HomePageState extends State<HomePage> {
                     Text("in kg",
                         style: TextStyle(
                             color: Colors.grey[800],
-                            fontSize: 14)), // Modified label to match left-side format
+                            fontSize: 14)),
                   ],
                 ),
               ],
@@ -179,21 +179,62 @@ class _HomePageState extends State<HomePage> {
   Widget buildCroppedAssetCard(String path, double topTrim, double bottomTrim) {
     return ClipRect(
       clipper: UnevenCropClipper(topTrim: topTrim, bottomTrim: bottomTrim),
-      child: Image.asset(path, fit: BoxFit.cover, width: double.infinity),
+      child: Image.asset(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Colors.grey[300],
+          child: Icon(Icons.image_not_supported, color: Colors.grey[500]),
+        ),
+      ),
     );
   }
 
-  int _CurrentIndex = 0;
-  @override
+
   @override
   void initState() {
     super.initState();
-    // Fetch all data when the page loads
+    WidgetsBinding.instance.addObserver(this);
+    _fetchAllData();
+  }
+
+  void _onPickupScheduled() {
+    _refreshTrackerData();
+    setState(() {
+      _currentIndex = 0;
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshTrackerData();
+    }
+  }
+
+  void _fetchAllData() {
     fetchUserName();
     _fetchStatsAndScraps();
     _fetchLatestPickup();
+    _fetchUpcomingDrives();
+    _fetchBanners();
   }
 
+  void _refreshTrackerData() {
+    if (mounted) {
+      setState(() => _isLoadingTracker = true);
+      _fetchLatestPickup();
+    }
+  }
+
+  // ... (fetchUserName, _fetchStatsAndScraps, _fetchLatestPickup... no changes) ...
   Future<void> fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -225,7 +266,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ✨ NEW: Function to get stats and top scraps from COMPLETED pickups
   Future<void> _fetchStatsAndScraps() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -258,7 +298,6 @@ class _HomePageState extends State<HomePage> {
         tempTotalEarnings += amount;
 
         List<String> scraps = List<String>.from(data['scrapTypes'] ?? []);
-        // Approx weight per type (can be refined)
         double weightPerType = weight / (scraps.isEmpty ? 1 : scraps.length);
 
         for (String scrap in scraps) {
@@ -268,7 +307,6 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // Sort scraps by frequency
       final sortedByTimes = tempScrapTimes.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -293,8 +331,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ✨ NEW: Function to get the SOONEST PENDING pickup for the tracker
   Future<void> _fetchLatestPickup() async {
+    if (!mounted) return;
+    setState(() => _isLoadingTracker = true);
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (mounted) setState(() => _isLoadingTracker = false);
@@ -307,7 +347,7 @@ class _HomePageState extends State<HomePage> {
           .where('userId', isEqualTo: user.uid)
           .where('status',
           whereIn: ['Pending', 'Confirmed', 'Out-for-Pickup'])
-          .orderBy('pickupDate') // Ascending to get the soonest
+          .orderBy('pickupDate')
           .limit(1)
           .get();
 
@@ -323,7 +363,172 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ✨ NEW: Helper to map Firestore status to tracker step
+  Future<void> _fetchUpcomingDrives() async {
+    if (!mounted) return;
+    setState(() => _isLoadingDrives = true);
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('drives')
+          .where('date', isGreaterThanOrEqualTo: Timestamp.now())
+          .orderBy('date')
+          .limit(3)
+          .get();
+
+      final realDrives =
+      snapshot.docs.map((doc) => Drive.fromFirestore(doc)).toList();
+
+      List<Drive> drivesForHome = List.from(realDrives);
+      int placeholdersNeeded = max(0, 3 - realDrives.length);
+
+      for (int i = 0; i < placeholdersNeeded; i++) {
+        drivesForHome.add(Drive.placeholder(uniqueId: i));
+      }
+
+      if (mounted) {
+        setState(() {
+          _homePageDrives = drivesForHome;
+          _isLoadingDrives = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching upcoming drives: $e");
+      if (mounted) {
+        setState(() {
+          _homePageDrives = [
+            Drive.placeholder(uniqueId: 0),
+            Drive.placeholder(uniqueId: 1),
+            Drive.placeholder(uniqueId: 2),
+          ];
+          _isLoadingDrives = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchBanners() async {
+    if (!mounted) return;
+    setState(() => _isLoadingBanners = true);
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('banners')
+          .orderBy('order')
+          .get();
+
+      final banners = snapshot.docs.map((doc) => BannerModel.fromFirestore(doc)).toList();
+
+      if (mounted) {
+        setState(() {
+          _banners = banners;
+          _isLoadingBanners = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching banners: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingBanners = false;
+          _banners = [];
+        });
+      }
+    }
+  }
+
+  // ✅ 1. UPDATED THIS METHOD
+  void _onBannerTapped(BannerModel banner) async {
+    if (banner.linkValue.isEmpty) {
+      return; // Do nothing if there's no link
+    }
+
+    switch (banner.linkType) {
+      case 'URL':
+      // Launch external URL
+        final uri = Uri.tryParse(banner.linkValue);
+        if (uri != null) {
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (e) {
+            print('Could not launch ${banner.linkValue}: $e');
+          }
+        }
+        break;
+
+      case 'PAGE':
+      // ✅ 2. ADDED LOGIC TO CHECK FOR MAIN TABS
+      // Check for main tab routes first
+        if (banner.linkValue == '/schedule_pickup') {
+          setState(() {
+            _currentIndex = 1; // Switch to the Schedule Pickup tab
+          });
+          return; // Stop here
+        }
+        if (banner.linkValue == '/settings') {
+          setState(() {
+            _currentIndex = 2; // Switch to the Settings tab
+          });
+          return; // Stop here
+        }
+
+        // If not a main tab, navigate to internal page
+        Widget? page;
+        switch (banner.linkValue) {
+          case '/pricelist':
+            page = pricelist();
+            break;
+          case '/society_campaign':
+            page = const SocietyCampaignPage();
+            break;
+        // You can add more pages here
+          case '/history':
+            page = HistoryScreen();
+            break;
+        }
+
+        if (page != null && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => page!),
+          );
+        }
+        break;
+
+      case 'NONE':
+      default:
+      // Do nothing
+        break;
+    }
+  }
+
+  // ... (_onDriveCardTapped, _onViewAllDrivesTapped, _mapStatusToStep, _getIconForScrap... no changes) ...
+  void _onDriveCardTapped(Drive drive) {
+    if (drive.isPlaceholder) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: kPrimaryColor,
+          content: Text(
+            "A new drive is coming soon! Check back later.",
+            style: TextStyle(color: kCreamLight),
+          ),
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DriveDetailsPage(drive: drive),
+        ),
+      );
+    }
+  }
+
+  void _onViewAllDrivesTapped() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AllDrivesPage()),
+    );
+  }
+
   int _mapStatusToStep(String? status) {
     switch (status) {
       case 'Pending':
@@ -335,11 +540,10 @@ class _HomePageState extends State<HomePage> {
       case 'Completed':
         return 4;
       default:
-        return 0; // No active pickup
+        return 0;
     }
   }
 
-  // ✨ NEW: Helper to get icon path for scrap type
   String _getIconForScrap(String scrapName) {
     final name = scrapName.toLowerCase();
     if (name.contains('metal')) {
@@ -351,11 +555,382 @@ class _HomePageState extends State<HomePage> {
     if (name.contains('paper') || name.contains('newspaper')) {
       return 'assets/images/home/scraps/newspaper.png';
     }
-    // Default icon
     return 'assets/images/home/scraps/bottle.png';
   }
 
+
+  // EXTRACTED HOME CONTENT
+  Widget _buildHomeContent() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // ==== Header ====
+          Container(
+            height: 240,
+            decoration: BoxDecoration(
+              color: kPrimaryColor,
+              borderRadius:
+              const BorderRadius.vertical(bottom: Radius.circular(40)),
+              image: const DecorationImage(
+                image: AssetImage('assets/images/home/homeheader.png'),
+                fit: BoxFit.cover,
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(26, 0, 21, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Left side (Avatar + Texts)
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => profile()),
+                          ).then((_) => _refreshTrackerData());
+                        },
+                        child: const CircleAvatar(
+                          radius: 23,
+                          backgroundColor: Color(0xFFa8ce4c),
+                          child: Icon(Icons.account_circle,
+                              color: kPrimaryColor, size: 45),
+                        ),
+                      ),
+                      const SizedBox(width: 18),
+                      Column(
+                        mainAxisAlignment:
+                        MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                                top: 23.0),
+                            child: Row(
+                              children: [
+                                Text(
+                                  'Hello, $userName',
+                                  style: const TextStyle(
+                                    fontSize: 21,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on,
+                                  color: kAccentColor, size: 18),
+                              SizedBox(width: 4),
+                              Text("Andhra Pradesh",
+                                  style: const TextStyle(
+                                      fontSize: 14, color: Colors.white)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Notification Icon on the right
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child:
+                  Icon(Icons.notifications, color: kAccentColor, size: 30),
+                ),
+              ],
+            ),
+          ),
+
+          // ==== Stats Card ====
+          Transform.translate(
+            offset: const Offset(0, -30),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 26),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: kCreamLight,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 12,
+                      offset: const Offset(0, 13)),
+                ],
+              ),
+              child: _isLoadingStats
+                  ? Center(child: CircularProgressIndicator())
+                  : Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  StatCard(
+                      icon: Icons.recycling,
+                      label: '${_totalWeight.toStringAsFixed(1)} kg',
+                      sub: 'Total Recycled'),
+                  StatCard(
+                      icon: Icons.cloud,
+                      label: '0 m³',
+                      sub: 'Saved CO₂'),
+                  StatCard(
+                      icon: Icons.currency_rupee,
+                      label: '₹${_totalEarnings.toStringAsFixed(0)}',
+                      sub: 'Total Earnings'),
+                ],
+              ),
+            ),
+          ),
+
+          // ==== Scrollable Cards ====
+          // ✅ 3. THIS SECTION IS NOW CLICKABLE
+          _isLoadingBanners
+              ? const SizedBox(
+            height: 187,
+            child: Center(child: CircularProgressIndicator()),
+          )
+              : _banners.isEmpty
+              ? const SizedBox(height: 8)
+              : ImageCardScroller(
+            children: _banners.map((banner) {
+              // Wrap the card in a GestureDetector
+              return GestureDetector(
+                onTap: () => _onBannerTapped(banner),
+                child: buildCroppedAssetCard(banner.imageUrl, 0, 0),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ==== UPDATED: Pickup Tracker Section ====
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              children: [
+                if (!_isLoadingTracker && _latestPendingPickup != null)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Pickup Tracker",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AllTrackersPage(),
+                            ),
+                          ).then((_) => _refreshTrackerData());
+                        },
+                        child: const Text(
+                          "View all",
+                          style: TextStyle(color: Colors.green),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                if (!_isLoadingTracker && _latestPendingPickup != null)
+                  const SizedBox(height: 4),
+
+                _isLoadingTracker
+                    ? const SizedBox(
+                    height: 100,
+                    child: Center(child: CircularProgressIndicator()))
+                    : _latestPendingPickup != null
+                    ? PickupTracker(
+                  currentStep: _mapStatusToStep(
+                      _latestPendingPickup!['status'] as String?),
+                  pickupDate: (_latestPendingPickup!['pickupDate']
+                  as Timestamp)
+                      .toDate(),
+                  showUpcomingTag: true,
+                  pickupId: _latestPendingPickup!.id,
+                )
+                    : const SizedBox(
+                    height: 0),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // ==== Shortcuts Grid ====
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              child: GridView.count(
+                crossAxisCount: 4,
+                crossAxisSpacing: 5,
+                mainAxisSpacing: 5,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  ShortcutButton(
+                    icon: Icons.list,
+                    label: 'Price List \n',
+                    onTap: () {
+                      Navigator.push(
+                          context, MaterialPageRoute(builder: (_) => pricelist()));
+                    },
+                  ),
+                  ShortcutButton(
+                    icon: Icons.history,
+                    label: 'History \n',
+                    onTap: () {
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => HistoryScreen()))
+                          .then((_) => _refreshTrackerData());
+                    },
+                  ),
+                  ShortcutButton(
+                    icon: Icons.track_changes,
+                    label: 'Live \n Tracking',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "Live Tracking is an upcoming feature!",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor: kPrimaryColor,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                  ShortcutButton(
+                    icon: Icons.campaign,
+                    label: 'Society \n Campaign',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const SocietyCampaignPage()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ==== Footer Image ====
+          Padding(
+            padding: const EdgeInsets.all(0),
+            child: ClipRRect(
+              child: Align(
+                child: Image.asset('assets/images/home/15.png'),
+              ),
+            ),
+          ),
+
+          // ==== Recycling Dashboard Section ====
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- UPCOMING DRIVES ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Upcoming Drives",
+                      style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                    TextButton(
+                      onPressed: _onViewAllDrivesTapped,
+                      child: const Text(
+                        "View all",
+                        style: TextStyle(color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 220,
+                  child: _isLoadingDrives
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _homePageDrives.length,
+                    itemBuilder: (context, index) {
+                      final drive = _homePageDrives[index];
+                      return DriveCard(
+                        drive: drive,
+                        onTap: () => _onDriveCardTapped(drive),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                // --- Most Recycled Scraps ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: const [
+                    Text("Most Recycled Scraps",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18)),
+                    Text("View all", style: TextStyle(color: Colors.green)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                _isLoadingScraps
+                    ? Center(child: CircularProgressIndicator())
+                    : _topScrapsList.isEmpty
+                    ? Center(
+                    child: Text("No completed pickups yet.",
+                        style: TextStyle(fontSize: 16)))
+                    : Column(
+                  children: _topScrapsList.map((entry) {
+                    final name = entry.key;
+                    final times = entry.value.toString();
+                    final kg = _scrapWeights[name]
+                        ?.toStringAsFixed(1) ??
+                        '0.0';
+                    final iconPath = _getIconForScrap(name);
+                    return scrapCard(name, times, kg, iconPath);
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // ... (build method - no changes) ...
+    const List<String> _pageTitles = [
+      'Home',
+      'Schedule Pickup',
+      'Settings',
+    ];
+
+    final List<Widget> pages = [
+      _buildHomeContent(),
+      SchedulePickup(
+          onPickupScheduled: _onPickupScheduled,
+          isTab: true),
+      Settings_page(),
+    ];
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: kPrimaryColor,
@@ -363,346 +938,43 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Scaffold(
         backgroundColor: kCreamColor,
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              // ==== Header ====
-              Container(
-                height: 240,
-                decoration: BoxDecoration(
-                  color: kPrimaryColor,
-                  borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(40)),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/home/homeheader.png'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(26, 0, 21, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Left side (Avatar + Texts)
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => profile()),
-                              );
-                            },
-                            child: const CircleAvatar(
-                              radius: 23,
-                              backgroundColor: Color(0xFFa8ce4c),
-                              child: Icon(Icons.account_circle,
-                                  color: kPrimaryColor, size: 45),
-                            ),
-                          ),
-                          const SizedBox(width: 18),
-                          Column(
-                            mainAxisAlignment:
-                            MainAxisAlignment.center, // This helps!
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                    top: 23.0), // Adjust this value to move text downward
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      'Hello, $userName',
-                                      style: const TextStyle(
-                                        fontSize: 21,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // ✨ UPDATED: Static Location Row
-                              Row(
-                                children: [
-                                  Icon(Icons.location_on,
-                                      color: kAccentColor, size: 18),
-                                  SizedBox(width: 4),
-                                  Text("Andhra Pradesh", // ✨ SET TO STATIC TEXT
-                                      style: const TextStyle(
-                                          fontSize: 14, color: Colors.white)),
-                                  // ✨ REMOVED: IconButton for dropdown
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Notification Icon on the right
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child:
-                      Icon(Icons.notifications, color: kAccentColor, size: 30),
-                    ),
-                  ],
-                ),
-              ),
 
-              // ==== Stats Card ====
-              Transform.translate(
-                offset: const Offset(0, -30),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 26),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kCreamLight,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 12,
-                          offset: const Offset(0, 13)),
-                    ],
-                  ),
-                  child: _isLoadingStats
-                      ? Center(child: CircularProgressIndicator())
-                  // ✨ UPDATED: Live Stats
-                      : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      StatCard(
-                          icon: Icons.recycling,
-                          label: '${_totalWeight.toStringAsFixed(1)} kg',
-                          sub: 'Total Recycled'),
-                      StatCard(
-                          icon: Icons.cloud,
-                          label: '0 m³',
-                          sub: 'Saved CO₂'), // Left as 0
-                      StatCard(
-                          icon: Icons.currency_rupee,
-                          label: '₹${_totalEarnings.toStringAsFixed(0)}',
-                          sub: 'Total Earnings'),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ==== Scrollable Cards ====
-              ImageCardScroller(children: [
-                buildCroppedAssetCard("assets/images/home/14.png", 0, 0),
-                buildCroppedAssetCard("assets/images/home/14.png", 0, 0),
-                buildCroppedAssetCard("assets/images/home/14.png", 0, 0),
-              ]),
-
-              const SizedBox(height: 8),
-
-              // ✨ UPDATED: Live Pickup Tracker
-              _isLoadingTracker
-                  ? SizedBox(
-                  height: 100,
-                  child: Center(child: CircularProgressIndicator()))
-                  : _latestPendingPickup == null
-                  ? Center(
-                  child: Text(
-                    "No upcoming pickups. Schedule one!",
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ))
-                  : PickupTracker(
-                currentStep: _mapStatusToStep(
-                    _latestPendingPickup!['status'] as String?),
-              ),
-
-              const SizedBox(height: 8),
-
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
-                child: Padding(
-                    padding: EdgeInsets.only(bottom: 0, left: 12.0),
-                    child: Align(
-                      alignment: Alignment.centerLeft, // Aligns text to the left
-                      child: Text(
-                        'Shortcuts',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    )),
-              ),
-
-              // ==== Shortcuts Grid ====
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  child: GridView.count(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 5,
-                    mainAxisSpacing: 5,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      ShortcutButton(
-                        icon: Icons.list,
-                        label: 'Price List \n',
-                        onTap: () {
-                          Navigator.push(
-                              context, MaterialPageRoute(builder: (_) => pricelist()));
-                        },
-                      ),
-                      ShortcutButton(
-                        icon: Icons.schedule,
-                        label: 'Schedule \n Pick-up',
-                        onTap: () {
-                          // ✨ UPDATED: Refresh data after returning from SchedulePickup
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => SchedulePickup()))
-                              .then((_) {
-                            // When we come back, refresh the tracker
-                            setState(() => _isLoadingTracker = true);
-                            _fetchLatestPickup();
-                          });
-                        },
-                      ),
-                      ShortcutButton(
-                        icon: Icons.track_changes,
-                        label: 'Live \n Tracking',
-                        onTap: () {
-                          //Navigator.push(context, MaterialPageRoute(builder: (_) => LiveTrackingPage()));
-                        },
-                      ),
-                      ShortcutButton(
-                        icon: Icons.campaign,
-                        label: 'Society \n Campaign',
-                        onTap: () {
-                          //Navigator.push(context, MaterialPageRoute(builder: (_) => SocietyCampaignPage()));
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // ==== Footer Image ====
-              Padding(
-                padding: const EdgeInsets.all(0),
-                child: ClipRRect(
-                  child: Align(
-                    child: Image.asset('assets/images/home/15.png'),
-                  ),
-                ),
-              ),
-
-              // ==== Recycling Dashboard Section ====
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // --- Upcoming Drives ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text(
-                          "Upcoming Drives",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18),
-                        ),
-                        Text(
-                          "View all",
-                          style: TextStyle(color: Colors.green),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 200, // Adjust height based on card size
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: cardList.length, // List of card details
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding:
-                            const EdgeInsets.symmetric(horizontal: 5.0),
-                            child: upcomingCard(cardList[index].title,
-                                cardList[index].image),
-                          );
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // --- Most Recycled Scraps ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text("Most Recycled Scraps",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 18)),
-                        Text("View all", style: TextStyle(color: Colors.green)),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-
-                    // ✨ UPDATED: Live Scrap List
-                    _isLoadingScraps
-                        ? Center(child: CircularProgressIndicator())
-                        : _topScrapsList.isEmpty
-                        ? Center(
-                        child: Text("No completed pickups yet.",
-                            style: TextStyle(fontSize: 16)))
-                        : Column(
-                      children: _topScrapsList.map((entry) {
-                        final name = entry.key;
-                        final times = entry.value.toString();
-                        final kg = _scrapWeights[name]
-                            ?.toStringAsFixed(1) ??
-                            '0.0';
-                        final iconPath = _getIconForScrap(name);
-                        return scrapCard(name, times, kg, iconPath);
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ],
+        appBar: _currentIndex == 0
+            ? null
+            : AppBar(
+          centerTitle: true,
+          title: Text(
+            _pageTitles[_currentIndex],
+            style: const TextStyle(
+              fontFamily: 'RedHatDisplay',
+              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              letterSpacing: 1.0,
+              color: kCreamColor,
+            ),
           ),
+          backgroundColor: kPrimaryColor,
+          automaticallyImplyLeading: false,
         ),
 
-        // ==== Bottom Nav ====
+        body: IndexedStack(
+          index: _currentIndex,
+          children: pages,
+        ),
+
         bottomNavigationBar: BottomNavigationBar(
           backgroundColor: kGreenLight,
-          currentIndex: _CurrentIndex,
+          currentIndex: _currentIndex,
+
           onTap: (index) {
-            if (index == 1) {
-              // If "Market Rates" is clicked
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => pricelist()),
-              );
-            }
-            if (index == 2) {
-              // If "Settings" is clicked
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Settings_page()),
-              );
-            } else {
-              setState(() {
-                _CurrentIndex = index;
-              });
-            }
+            setState(() {
+              _currentIndex = index;
+            });
           },
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.graphic_eq), label: 'Market Rates'),
+                icon: Icon(Icons.schedule), label: 'Schedule Pickup'),
             BottomNavigationBarItem(
                 icon: Icon(Icons.settings), label: 'Settings'),
           ],
@@ -714,6 +986,7 @@ class _HomePageState extends State<HomePage> {
 
 // ==== Reusable Components ====
 
+// ... (StatCard, ShortcutButton, UnevenCropClipper, ImageCardScroller remain unchanged) ...
 class StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -740,7 +1013,7 @@ class StatCard extends StatelessWidget {
 class ShortcutButton extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback? onTap; // allow nullable for flexibility
+  final VoidCallback? onTap;
 
   const ShortcutButton({
     required this.icon,
@@ -774,19 +1047,6 @@ class ShortcutButton extends StatelessWidget {
   }
 }
 
-class CardItem {
-  final String title;
-  final String image;
-
-  CardItem(this.title, this.image);
-}
-
-List<CardItem> cardList = [
-  CardItem("Know more", "assets/images/home/drives/plastic.png"),
-  CardItem("Know more", "assets/images/home/drives/recycle.png"),
-  // Add more CardItem objects here...
-];
-
 class UnevenCropClipper extends CustomClipper<Rect> {
   final double topTrim;
   final double bottomTrim;
@@ -810,11 +1070,36 @@ class ImageCardScroller extends StatefulWidget {
 }
 
 class _ImageCardScrollerState extends State<ImageCardScroller> {
-  final PageController _controller = PageController(viewportFraction: 0.9);
+  late final PageController _controller;
   int _currentIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 0.9);
+  }
+
+  @override
+  void didUpdateWidget(ImageCardScroller oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.children.length != oldWidget.children.length) {
+      _controller.jumpToPage(0);
+      _currentIndex = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (widget.children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       children: [
         SizedBox(
@@ -851,3 +1136,4 @@ class _ImageCardScrollerState extends State<ImageCardScroller> {
     );
   }
 }
+

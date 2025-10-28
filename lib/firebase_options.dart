@@ -63,6 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '967064516173',
     projectId: 'reviveecotech-dfbed',
     storageBucket: 'reviveecotech-dfbed.firebasestorage.app',
+    androidClientId: '967064516173-4fjk27ea55hjlhm80iu9q22m0fpbjmlg.apps.googleusercontent.com',
+    iosClientId: '967064516173-v07m865uqnuf8v97ohefr77k1vs8l2mq.apps.googleusercontent.com',
     iosBundleId: 'com.reviveecotechapp.reviveEcoTechApp',
   );
 
@@ -72,6 +74,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '967064516173',
     projectId: 'reviveecotech-dfbed',
     storageBucket: 'reviveecotech-dfbed.firebasestorage.app',
+    androidClientId: '967064516173-4fjk27ea55hjlhm80iu9q22m0fpbjmlg.apps.googleusercontent.com',
+    iosClientId: '967064516173-v07m865uqnuf8v97ohefr77k1vs8l2mq.apps.googleusercontent.com',
     iosBundleId: 'com.reviveecotechapp.reviveEcoTechApp',
   );
 

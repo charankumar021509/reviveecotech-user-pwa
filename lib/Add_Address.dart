@@ -4,11 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✨ NEW
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✨ NEW
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart';
 
 class AddAddress extends StatefulWidget {
-  const AddAddress({super.key});
+  // ✅ 1. ADD THIS to accept an existing address for editing
+  final DocumentSnapshot? existingAddress;
+
+  const AddAddress({super.key, this.existingAddress});
 
   @override
   State<AddAddress> createState() => _AddAddressState();
@@ -28,15 +33,34 @@ class _AddAddressState extends State<AddAddress> {
   Marker? _llMarker;
   StreamSubscription<Position>? _pss;
   BitmapDescriptor? _llIcon;
-
-  // ✨ NEW: Loading state for submit button
   bool _isSaving = false;
+
+  // ✅ 2. ADD THIS to track if we are in "Edit" mode
+  bool _isEditMode = false;
+
+  final TextEditingController _searchController = TextEditingController();
+  final String _apiKey = "AIzaSyBWsNBsKAaal3gEegLMh9EFE-QSgn01L9M"; // ⚠️ Replace
 
   @override
   void initState() {
     super.initState();
-    _mapCenter = const LatLng(20.5937, 78.9629);
-    _getAddress(_mapCenter!);
+
+    // ✅ 3. MODIFY initState to handle edit mode
+    if (widget.existingAddress != null) {
+      // We are in EDIT mode
+      _isEditMode = true;
+      final data = widget.existingAddress!.data() as Map<String, dynamic>;
+      _bName.text = data['line1'] ?? '';
+      _sAddress = data['fullAddress'] ?? 'Drag map to select';
+      _sAddressType = data['addressType'];
+      _mapCenter = LatLng(data['latitude'], data['longitude']);
+    } else {
+      // We are in ADD mode
+      _isEditMode = false;
+      _mapCenter = const LatLng(20.5937, 78.9629); // Default for new
+      _getAddress(_mapCenter!);
+    }
+
     _LllIcon();
     _sltll();
   }
@@ -44,12 +68,14 @@ class _AddAddressState extends State<AddAddress> {
   @override
   void dispose() {
     _bName.dispose();
+    _searchController.dispose();
     _sheetExtent.dispose();
     googleMapController.dispose();
     _pss?.cancel();
     super.dispose();
   }
 
+  // ... (Your methods _LllIcon, _sltll, _getAddress, _showSnackBar remain unchanged) ...
   Future<void> _LllIcon() async {
     final double size = 60;
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
@@ -68,7 +94,8 @@ class _AddAddressState extends State<AddAddress> {
     arrowPath.lineTo(size / 2 + arrowSize, size / 2 + arrowSize * 0.5);
     arrowPath.close();
     canvas.drawPath(arrowPath, arrowPaint);
-    final img = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
+    final img =
+    await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
     final data = await img.toByteData(format: ui.ImageByteFormat.png);
     if (data != null) {
       _llIcon = BitmapDescriptor.fromBytes(data.buffer.asUint8List());
@@ -152,7 +179,6 @@ class _AddAddressState extends State<AddAddress> {
     }
   }
 
-  // ✨ NEW: Function to show a snackbar
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -163,9 +189,8 @@ class _AddAddressState extends State<AddAddress> {
     );
   }
 
-  // ✨ NEW: Function to save the address
+  // ✅ 4. MODIFY _saveAddress to handle both Add and Update
   Future<void> _saveAddress() async {
-    // 1. Validation
     if (_mapCenter == null) {
       _showSnackBar("Please select a location on the map.", isError: true);
       return;
@@ -180,7 +205,6 @@ class _AddAddressState extends State<AddAddress> {
       return;
     }
 
-    // 2. Get current user
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showSnackBar("You must be logged in to save an address.", isError: true);
@@ -190,23 +214,31 @@ class _AddAddressState extends State<AddAddress> {
     setState(() => _isSaving = true);
 
     try {
-      // 3. Get reference to the user's 'addresses' subcollection
-      final addressRef = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('addresses');
-
-      // 4. Add the new address document
-      await addressRef.add({
+      // This data structure is the same for both add and update
+      final addressData = {
         'line1': _bName.text.trim(),
         'fullAddress': _sAddress,
         'latitude': _mapCenter!.latitude,
         'longitude': _mapCenter!.longitude,
         'addressType': _sAddressType,
-        'createdAt': FieldValue.serverTimestamp(), // Good to have this
-      });
+        'createdAt': FieldValue.serverTimestamp(), // Will be set on create, ignored on update
+      };
 
-      _showSnackBar("Address saved successfully!");
+      final collectionRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('addresses');
+
+      if (_isEditMode) {
+        // UPDATE existing document
+        await collectionRef.doc(widget.existingAddress!.id).update(addressData);
+        _showSnackBar("Address updated successfully!");
+      } else {
+        // ADD new document
+        await collectionRef.add(addressData);
+        _showSnackBar("Address saved successfully!");
+      }
+
       if (mounted) Navigator.pop(context);
     } catch (e) {
       _showSnackBar("Failed to save address: $e", isError: true);
@@ -221,9 +253,10 @@ class _AddAddressState extends State<AddAddress> {
       backgroundColor: const Color(0xFFFCF3E3),
       appBar: AppBar(
         centerTitle: true,
-        title: const Text(
-          'Add Address',
-          style: TextStyle(
+        // ✅ 5. Make title dynamic
+        title: Text(
+          _isEditMode ? 'Edit Address' : 'Add Address',
+          style: const TextStyle(
             fontFamily: 'RedHatDisplay',
             fontWeight: FontWeight.bold,
             fontSize: 24,
@@ -233,12 +266,10 @@ class _AddAddressState extends State<AddAddress> {
         ),
         backgroundColor: const Color(0xFF013D5A),
         leading: IconButton(
-          icon: Transform.rotate(
-            angle: 1.57, // 90 degrees in radians (for a right turn icon)
-            child: const Icon(Icons.u_turn_left, color: Colors.white),
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Colors.white), // Use a standard back icon
           onPressed: () {
-            Navigator.pop(context); // Navigate back to the previous screen
+            Navigator.pop(context);
           },
         ),
       ),
@@ -249,27 +280,25 @@ class _AddAddressState extends State<AddAddress> {
             builder: (context, currentExtent, child) {
               double mapH =
                   MediaQuery.of(context).size.height * (1.0 - currentExtent);
-              return Container(
+              return SizedBox(
                 height: mapH,
                 child: GoogleMap(
                   onMapCreated: (controller) {
                     googleMapController = controller;
-                    _mapCenter = const LatLng(20.5937, 78.9629);
-                    _getAddress(_mapCenter!);
                   },
-                  initialCameraPosition: const CameraPosition(
-                    target: LatLng(20.5937, 78.9629),
-                    zoom: 5,
+                  // ✅ 6. Set initial camera based on edit or add mode
+                  initialCameraPosition: CameraPosition(
+                    target: _mapCenter!,
+                    zoom: _isEditMode ? 17 : 5, // Zoom in if editing
                   ),
                   myLocationEnabled: false,
                   myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
+                  zoomControlsEnabled: true,
                   markers: {
                     if (_llMarker != null) _llMarker!,
                   },
                   onCameraMove: (CameraPosition position) {
                     _mapCenter = position.target;
-                    // ✨ Smoothly animate sheet to min size instead of snapping
                     if (_sheetExtent.value > _minSheetSize + 0.1) {
                       _sheetExtent.value = _minSheetSize;
                     }
@@ -285,12 +314,64 @@ class _AddAddressState extends State<AddAddress> {
           ),
           const Center(
             child: Padding(
-              // ✨ Add padding to "pin" doesn't overlap the sheet handle
               padding: EdgeInsets.only(bottom: 50.0),
               child: Icon(
                 Icons.location_on_sharp,
                 size: 40,
                 color: Colors.redAccent,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 10,
+            left: 15,
+            right: 15,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: GooglePlaceAutoCompleteTextField(
+                textEditingController: _searchController,
+                googleAPIKey: _apiKey,
+                inputDecoration: InputDecoration(
+                  hintText: "Search for a location",
+                  prefixIcon:
+                  const Icon(Icons.search, color: Color(0xFF013D5A)),
+                  border: InputBorder.none,
+                  contentPadding:
+                  const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                ),
+                debounceTime: 400,
+                isLatLngRequired: true,
+                getPlaceDetailWithLatLng: (Prediction prediction) async {
+                  if (prediction.lat != null && prediction.lng != null) {
+                    LatLng newPos = LatLng(
+                      double.parse(prediction.lat!),
+                      double.parse(prediction.lng!),
+                    );
+                    googleMapController.animateCamera(
+                      CameraUpdate.newCameraPosition(
+                        CameraPosition(target: newPos, zoom: 17),
+                      ),
+                    );
+                    _searchController.clear();
+                    FocusScope.of(context).unfocus();
+                  }
+                },
+                itemClick: (Prediction prediction) {
+                  _searchController.text = prediction.description ?? "";
+                  _searchController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: prediction.description?.length ?? 0),
+                  );
+                },
               ),
             ),
           ),
@@ -408,7 +489,6 @@ class _AddAddressState extends State<AddAddress> {
                           height: 24,
                         ),
                         ElevatedButton(
-                          // ✨ UPDATED: Call _saveAddress
                           onPressed: _isSaving ? null : _saveAddress,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFA6CB4E),
@@ -424,8 +504,11 @@ class _AddAddressState extends State<AddAddress> {
                               valueColor: AlwaysStoppedAnimation<Color>(
                                   Colors.white),
                             )
+                            // ✅ 7. Make button text dynamic
                                 : Text(
-                              "Confirm Address",
+                              _isEditMode
+                                  ? "Update Address"
+                                  : "Confirm Address",
                               style: TextStyle(
                                 fontSize: 18,
                                 fontFamily: "RedHatDisplay",
@@ -475,19 +558,9 @@ class _AddAddressState extends State<AddAddress> {
                         ),
                       );
                       _mapCenter = pos;
-                      _getAddress(pos);
-                      print('Current Location fetched and map centered');
-                      _sheetExtent.value = _initialSheetSize;
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "Error getting location:${e.toString()}",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                      _showSnackBar("Error getting location: ${e.toString()}",
+                          isError: true);
                       print('Location error: $e');
                     } finally {
                       setState(() => isLoading = false);

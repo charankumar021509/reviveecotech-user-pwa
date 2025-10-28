@@ -1,21 +1,43 @@
 import 'package:flutter/material.dart';
-// Import your new wrapper
 import 'package:revive_eco_tech_app/auth_wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-// You no longer need FirebaseAuth or HomePage here
+import 'package:firebase_app_check/firebase_app_check.dart';
+
+// ─────────────────────────────────────────────────────────────
+// Logs Firebase configuration at runtime
+// ─────────────────────────────────────────────────────────────
+Future<void> logFirebaseProjectInfo() async {
+  final app = Firebase.app();
+  final options = app.options;
+
+  print('------------------ FIREBASE CONFIG CHECK ------------------');
+  print('Project ID:       ${options.projectId}');
+  print('App ID:           ${options.appId}');
+  print('API Key:          ${options.apiKey}');
+  print('Messaging Sender: ${options.messagingSenderId}');
+  print('------------------------------------------------------------');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // All the old logic is removed. We let AuthWrapper handle it.
+  // 🔍 Print which Firebase project this build is connected to
+  await logFirebaseProjectInfo();
+
+  // ✅ Initialize App Check (Play Integrity + DeviceCheck)
+  await FirebaseAppCheck.instance.activate(
+    androidProvider: AndroidProvider.playIntegrity,
+    appleProvider: AppleProvider.deviceCheck,
+  );
+
   runApp(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      // Set the AuthWrapper as the home
       home: const AuthWrapper(),
     ),
   );

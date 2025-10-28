@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:revive_eco_tech_app/widgets/pending_pickup_card.dart';
 import 'package:revive_eco_tech_app/widgets/completed_pickup_card.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✨ NEW
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✨ NEW
-import 'package:intl/intl.dart'; // ✨ NEW (for date formatting)
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'pickup_details_page.dart'; // Import the details page
 
-// void main() { // You can remove this main, as history is not the main entry point
-//   runApp(MaterialApp(
-//     debugShowCheckedModeBanner: false,
-//     home: HistoryScreen(),
-//   ));
-// }
+// ==== Constants (Ensure these match your app's theme) ====
+const kPrimaryColor = Color(0xFF003049); // From your original AppBar
+const kCreamColor = Color(0xFFFCF3E9); // From your original background
+const kAccentColor = Color(0xFFa7cd47); // From your original tab button
 
 class HistoryScreen extends StatefulWidget {
   @override
@@ -18,25 +17,30 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  final PageController _pageController = PageController();
+  // Use late initialization for controllers if disposed properly
+  late PageController _pageController;
   int _selectedIndex = 0;
 
-  // ✨ NEW: State variables for live data
   bool _isLoading = true;
   List<DocumentSnapshot> _pendingPickups = [];
-  List<DocumentSnapshot> _completedPickups = [];
-
-  // ✨ REMOVED: Dummy data
-  // List<Map<String, dynamic>> pendingHistory = [...];
-  // List<Map<String, dynamic>> completedHistory = [...];
+  List<DocumentSnapshot> _completedOrCancelledPickups = [];
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _selectedIndex); // Initialize here
     _fetchHistory();
   }
 
-  // ✨ NEW: Function to fetch data from Firestore
+  // ✅ Dispose controller
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+
+  // Fetch data including Cancelled
   Future<void> _fetchHistory() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -44,136 +48,153 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return;
     }
 
+    // Reset lists and set loading state correctly
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _pendingPickups = [];
+        _completedOrCancelledPickups = [];
+      });
+    }
+
+
     try {
       final pickupsRef = FirebaseFirestore.instance.collection('pickups');
+      final now = Timestamp.now(); // Get current time for filtering if needed
 
-      // Get Pending Pickups
+      // Get Pending/Upcoming Pickups
       final pendingSnapshot = await pickupsRef
           .where('userId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'Pending') // Or any non-completed statuses
-          .orderBy('pickupDate', descending: true)
+          .where('status', whereIn: ['Pending', 'Confirmed', 'Out-for-Pickup'])
+      // Optional: Only show pickups scheduled for today or later?
+      // .where('pickupDate', isGreaterThanOrEqualTo: now)
+          .orderBy('pickupDate', descending: true) // Show soonest upcoming last, or latest first? Let's keep latest first for now.
           .get();
 
-      // Get Completed Pickups
+      // Get Completed & Cancelled Pickups
       final completedSnapshot = await pickupsRef
           .where('userId', isEqualTo: user.uid)
-          .where('status', isEqualTo: 'Completed')
-          .orderBy('pickupDate', descending: true)
+          .where('status', whereIn: ['Completed', 'Cancelled'])
+          .orderBy('pickupDate', descending: true) // Show most recent past first
           .get();
 
       if (mounted) {
         setState(() {
           _pendingPickups = pendingSnapshot.docs;
-          _completedPickups = completedSnapshot.docs;
+          _completedOrCancelledPickups = completedSnapshot.docs;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
       print("Error fetching history: $e");
-      // You might want to show a SnackBar here
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error fetching history: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
+  // Animate page view when tab is tapped
   void _onTabTap(int index) {
-    setState(() => _selectedIndex = index);
+    if (!_pageController.hasClients) return; // Check if controller is ready
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+    // Update state directly here too for instant UI feedback
+    // setState(() => _selectedIndex = index); // No, let onPageChanged handle state
   }
 
+  // Update selected index when page is swiped
   void _onPageChanged(int index) {
     setState(() => _selectedIndex = index);
   }
 
+  // Navigate to details page and refresh on return
+  void _navigateToDetails(String pickupId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PickupDetailsPage(pickupId: pickupId),
+      ),
+    ).then((_) {
+      // Re-fetch history when returning
+      _fetchHistory();
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFCF3E9),
+      backgroundColor: kCreamColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF003049),
+        backgroundColor: kPrimaryColor,
         title: const Text(
           'History',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: Image.asset(
-            'assets/icons/back.png', // Path to your PNG
-            width: 40, // Adjust width as needed
-            height: 40, // Adjust height as needed
-          ),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () {
-            Navigator.pop(context); // Navigate back to the previous screen
+            Navigator.pop(context);
           },
         ),
       ),
       body: Column(
         children: [
+          // --- Tab Buttons ---
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                _buildTabButton(0, "Pending"),
-                const SizedBox(width: 0),
-                _buildTabButton(1, "Completed"),
+                _buildTabButton(0, "Upcoming"),
+                const SizedBox(width: 10),
+                _buildTabButton(1, "Past"),
               ],
             ),
           ),
+          // --- Page View ---
           Expanded(
-            // ✨ NEW: Show loading indicator
+            // Ensure PageView takes remaining space
             child: _isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(color: kPrimaryColor))
                 : PageView(
-              controller: _pageController,
-              onPageChanged: _onPageChanged,
+              controller: _pageController, // Linked
+              onPageChanged: _onPageChanged, // Linked
               children: [
+                // --- Upcoming Pickups Page ---
                 _buildHistoryView(
-                  // ✨ UPDATED: Pass live data
+                  // Use a unique key if needed, but usually not for PageView children
+                  // key: const PageStorageKey('upcomingList'),
                   data: _pendingPickups,
                   imagePath: 'assets/images/home/history/pending.png',
-                  emptyMessage: 'No Pending history found !',
+                  emptyMessage: 'No upcoming pickups found!',
                   cardBuilder: (doc) {
-                    // ✨ NEW: Transform Firestore doc to map for your card
-                    final data = doc.data() as Map<String, dynamic>;
-                    final pickupDate =
-                    (data['pickupDate'] as Timestamp).toDate();
-                    final daysLeft =
-                        pickupDate.difference(DateTime.now()).inDays + 1;
-
-                    final info = {
-                      'imagePath': 'assets/images/home/scraps/metal.png', // Placeholder image
-                      'title': "Due in $daysLeft day${daysLeft == 1 ? '' : 's'}",
-                      'date': DateFormat('d MMMM yyyy').format(pickupDate),
-                      'time': data['pickupTimeSlot'] ?? 'No time slot',
-                      'items': (data['scrapTypes'] as List<dynamic>).join(', '),
-                      'daysLeft': daysLeft,
-                    };
-                    return PendingPickupCard(info: info);
+                    return GestureDetector(
+                        onTap: () => _navigateToDetails(doc.id),
+                        child: PendingPickupCard(pickupDoc: doc)
+                    );
                   },
                 ),
+                // --- Past Pickups Page ---
                 _buildHistoryView(
-                  // ✨ UPDATED: Pass live data
-                  data: _completedPickups,
+                  // key: const PageStorageKey('pastList'),
+                  data: _completedOrCancelledPickups,
                   imagePath: 'assets/images/home/history/completed.png',
-                  emptyMessage: 'No Completed history found !',
+                  emptyMessage: 'No past pickups found!',
                   cardBuilder: (doc) {
-                    // ✨ NEW: Transform Firestore doc to map for your card
-                    final data = doc.data() as Map<String, dynamic>;
-                    final pickupDate =
-                    (data['pickupDate'] as Timestamp).toDate();
-
-                    final info = {
-                      'imagePath': 'assets/images/home/scraps/bottle.png', // Placeholder image
-                      'date': DateFormat('d MMMM yyyy').format(pickupDate),
-                      'time': data['pickupTimeSlot'] ?? 'No time slot',
-                      'items': (data['scrapTypes'] as List<dynamic>).join(', '),
-                      'orderNumber': doc.id, // Use doc ID as order number
-                      'amount': data['amount'] ?? 0, // Use 0 if 'amount' is not set
-                    };
-                    return CompletedPickupCard(info: info);
+                    return GestureDetector(
+                        onTap: () => _navigateToDetails(doc.id),
+                        child: CompletedPickupCard(pickupDoc: doc)
+                    );
                   },
                 ),
               ],
@@ -184,38 +205,41 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  // --- Helper Widgets ---
+
   Widget _buildTabButton(int index, String label) {
+    bool isActive = _selectedIndex == index;
     return Expanded(
       child: SizedBox(
         height: 50,
         child: ElevatedButton(
           onPressed: () => _onTabTap(index),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _selectedIndex == index
-                ? const Color(0xFFa7cd47)
-                : Colors.white,
+            backgroundColor: isActive ? kAccentColor : Colors.white,
             foregroundColor: Colors.black,
-            elevation: 0,
+            elevation: isActive ? 3 : 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: Colors.black12),
+              side: BorderSide(
+                color: isActive ? Colors.transparent : Colors.grey.shade300,
+              ),
             ),
           ),
-          child:
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
     );
   }
 
-  // ✨ UPDATED: Generics to handle DocumentSnapshot
   Widget _buildHistoryView({
+    // Key? key, // Pass key if needed
     required List<DocumentSnapshot> data,
     required String imagePath,
     required String emptyMessage,
     required Widget Function(DocumentSnapshot) cardBuilder,
   }) {
     if (data.isEmpty) {
+      // Using your original empty state
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -223,9 +247,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
             const SizedBox(height: 130),
             Image.asset(imagePath, width: 300),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'OOPS!!',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
             ),
             Text(
               emptyMessage,
@@ -236,34 +260,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
+    // Use ListView.separated for better spacing control
+    return ListView.separated(
+      // key: key, // Pass key if needed for state preservation
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: data.length,
       itemBuilder: (context, index) {
         return cardBuilder(data[index]);
       },
+      separatorBuilder: (context, index) => const SizedBox(height: 12), // Consistent spacing
     );
   }
-}
-
-// This widget seems to be unused, you can remove it if you wish
-Widget _buildEmptyState({
-  required String imagePath,
-  required String title,
-  required String message,
-}) {
-  return Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Image.asset(imagePath, height: 250),
-        const SizedBox(height: 10),
-        Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        const SizedBox(height: 8),
-        Text(message, style: const TextStyle(fontSize: 16)),
-        const SizedBox(height: 180),
-      ],
-    ),
-  );
 }

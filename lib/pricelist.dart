@@ -1,127 +1,123 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:revive_eco_tech_app/utilities/tiles.datrt.dart';
-class pricelist extends StatelessWidget {
+
+// ==== Constants (from your home.dart) ====
+const kPrimaryColor = Color(0xFF013D5A);
+const kCreamColor = Color(0xFFFCF3E3);
+
+class pricelist extends StatefulWidget {
   const pricelist({super.key});
+
+  @override
+  State<pricelist> createState() => _pricelistState();
+}
+
+class _pricelistState extends State<pricelist> {
+  // Stream to fetch the main categories
+  final Stream<QuerySnapshot> _categoriesStream = FirebaseFirestore.instance
+      .collection('price_list')
+      .orderBy('order') // Sort by the 'order' field
+      .snapshots();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-              onPressed: (){
-                Navigator.pop(context);
-              },
-              icon: Transform.rotate(
-                angle:1.57,
-                child: Icon(Icons.u_turn_left,
-                  color: Colors.white,),
-              )
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          // Using a standard, cleaner back icon
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: kCreamColor,
           ),
-          centerTitle: true,
-          title: Text('Price List',
-            style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'RedHatDisplay',
-                letterSpacing: 1.0,
-                color: Color(0xFFFCF3E3)
-            ),
-          ),
-          backgroundColor: Color(0xFF013D5A),
         ),
-        backgroundColor: Color(0xFFFCF3E3),
-        body: Padding(
-          padding: EdgeInsets.fromLTRB(0, 50, 0, 20),
-          child: ListView(
-            children: [
-              Tiles(tilename: 'Paper', dropdownItems:[
-                {
-                  'name': 'Newspaper',
-                  'price': 'Rs.14/kg',
-                },
-                {
-                  'name':'books/magazines',
-                  'price': 'Rs.16/kg',
-                },
-                {
-                  'name':'Gatta/Cardboard',
-                  'price': 'Rs.10/kg',
-                },
-                {
-                  'name':'A4',
-                  'price': 'Rs.12/kg',
-                },
-              ]
-              ),
-              Tiles(tilename: 'Plastic', dropdownItems:[
-                {
-                  'name': 'Bottles',
-                  'price': 'Rs.10/kg',
-                },
-                {
-                  'name':'tupperware',
-                  'price': 'Rs.12/kg',
-                },
-
-              ]
-              ),
-              Tiles(tilename: 'Glass', dropdownItems:[
-                {
-                  'name': 'Bottles',
-                  'price': 'Rs.10/kg',
-                },
-              ]
-              ),
-              Tiles(tilename: 'Metals', dropdownItems:[
-                {
-                  'name': 'Aluminium',
-                  'price': 'Rs.140/kg',
-                },
-                {
-                  'name': 'Copper',
-                  'price': 'Rs.570/kg',
-                },
-                {
-                  'name': 'Iron',
-                  'price': 'Rs.20/kg',
-                },
-                {
-                  'name': 'Steel',
-                  'price': 'Rs.45/kg',
-                },
-                {
-                  'name': 'Brass',
-                  'price': 'Rs.400/kg',
-                },
-              ]
-              ),
-
-              Tiles(tilename: 'E-waste', dropdownItems:[
-                {
-                  'name': 'Keypad Phone',
-                  'price': 'Rs.200/piece',
-                },
-                {
-                  'name': 'Smart Phone',
-                  'price': 'Rs.400/piece',
-                },
-                {
-                  'name': 'Tablet',
-                  'price': 'Rs.300/piece',
-                },
-                {
-                  'name': 'Lcd',
-                  'price': 'Rs.200/piece',
-                },
-                {
-                  'name': 'Laptop',
-                  'price': 'Rs.400/piece',
-                },
-              ]
-              ),
-            ],
+        centerTitle: true,
+        title: const Text(
+          'Price List',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'RedHatDisplay',
+            letterSpacing: 1.0,
+            color: kCreamColor,
           ),
-        )
+        ),
+        backgroundColor: kPrimaryColor,
+      ),
+      backgroundColor: kCreamColor,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _categoriesStream,
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Something went wrong'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.data!.docs.isEmpty) {
+            return const Center(
+                child: Text(
+                  "No prices found.",
+                  style: TextStyle(fontSize: 18),
+                ));
+          }
+
+          // Build the list of tiles from the categories
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+            children: snapshot.data!.docs.map((DocumentSnapshot categoryDoc) {
+              Map<String, dynamic> categoryData =
+              categoryDoc.data()! as Map<String, dynamic>;
+
+              // For each category, we fetch its items in a new StreamBuilder
+              return StreamBuilder<QuerySnapshot>(
+                stream: categoryDoc.reference
+                    .collection('items')
+                    .orderBy('order')
+                    .snapshots(),
+                builder: (context, itemSnapshot) {
+                  if (itemSnapshot.hasError) {
+                    return const Text('Could not load items');
+                  }
+                  if (itemSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      // Show a simple loader for the tile's content
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2,)),
+                    );
+                  }
+
+                  // Once items are loaded, format them for the Tiles widget
+                  List<Map<String, String>> dropdownItems = itemSnapshot
+                      .data!.docs
+                      .map((itemDoc) {
+                    Map<String, dynamic> itemData =
+                    itemDoc.data()! as Map<String, dynamic>;
+                    return <String, String>{
+                    // return {
+                      'name': itemData['name'] ?? 'Unnamed',
+                      'price':
+                      'Rs. ${itemData['price'] ?? 0}/${itemData['unit'] ?? 'unit'}',
+                    };
+                  }).toList();
+
+                  // Return the final Tile widget
+                  return Tiles(
+                    tilename: categoryData['name'] ?? 'Unnamed Category',
+                    dropdownItems: dropdownItems,
+                  );
+                },
+              );
+            }).toList(),
+          );
+        },
+      ),
     );
   }
 }

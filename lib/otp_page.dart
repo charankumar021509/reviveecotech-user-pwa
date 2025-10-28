@@ -1,71 +1,103 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:revive_eco_tech_app/home.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 
 /// BRAND COLORS
 const kPrimaryColor = Color(0xFF013856);
-const kBeigeColor   = Color(0xFFFDF4E2);
-const kGreenColor   = Color(0xFF77913b);
+const kBeigeColor = Color(0xFFFDF4E2);
+const kGreenColor = Color(0xFF77913b);
 Color shadowColor = Colors.black;
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // globally set status bar to navy + light icons
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: kPrimaryColor,
-    statusBarIconBrightness: Brightness.light,
-  ));
-
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Revive App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        fontFamily: 'RedHatDisplay',
-        colorScheme: ColorScheme.fromSeed(seedColor: kPrimaryColor),
-        useMaterial3: true,
-      ),
-      home: const OtpPage(),
-    );
-  }
-}
-
 class OtpPage extends StatefulWidget {
-  const OtpPage({super.key});
+  final String verificationId;
+  const OtpPage({super.key, required this.verificationId});
+
   @override
-  _OtpPageState createState() => _OtpPageState();
+  State<OtpPage> createState() => _OtpPageState();
 }
 
 class _OtpPageState extends State<OtpPage> {
   final _codeController = TextEditingController();
-  int secondsLeft = 15;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _tick();
+    _listenForSms();
   }
 
-  void _tick() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted && secondsLeft > 0) {
-        setState(() => secondsLeft -= 1);
-        _tick();
-      }
-    });
+  void _listenForSms() async {
+    try {
+      await SmsAutoFill().listenForCode();
+    } catch (e) {
+      // Handle error if listening fails
+    }
   }
 
   @override
   void dispose() {
     _codeController.dispose();
+    SmsAutoFill().unregisterListener();
     super.dispose();
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : kGreenColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _verifyOtp(String smsCode) async {
+    if (smsCode.length != 6) {
+      _showSnackBar("Please enter a valid 6-digit code.", isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: widget.verificationId,
+        smsCode: smsCode.trim(),
+      );
+
+      final userCredential =
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (userCredential.additionalUserInfo?.isNewUser == true &&
+          userCredential.user != null) {
+        final user = userCredential.user!;
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'name': 'User-${user.uid.substring(0, 6)}',
+          'phone': user.phoneNumber ?? '',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+              (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnackBar(e.message ?? "Invalid OTP or an error occurred",
+          isError: true);
+    } catch (e) {
+      _showSnackBar("An error occurred: $e", isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -73,38 +105,32 @@ class _OtpPageState extends State<OtpPage> {
     final statusBarHeight = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      // cream background for the body
       backgroundColor: kBeigeColor,
       body: Column(
         children: [
-          // ─── NAVY HEADER + STATUS BAR ─────────────────
           Container(
             color: kPrimaryColor,
-            // cover the status bar + a bit more for padding
             padding: EdgeInsets.only(top: statusBarHeight, bottom: 32),
             width: double.infinity,
             child: Center(
               child: Image.asset(
-                'assets/images/home/logo.png',
+                'assets/images/home/logo.png', // Make sure this path is correct
                 width: MediaQuery.of(context).size.width * 0.8,
                 fit: BoxFit.contain,
               ),
             ),
           ),
-
-          // ─── CREAM CONTENT ─────────────────────────────
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 24),
-              //padding: const EdgeInsets.all(24),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 44, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  //const SizedBox(height: 10),
-                  Icon(Icons.email, color: kGreenColor, size: 58),
+                  const Icon(Icons.phone_android, color: kGreenColor, size: 58),
                   const SizedBox(height: 16),
                   const Text(
-                    "VERIFY YOUR E-MAIL ADDRESS",
+                    "VERIFY YOUR PHONE NUMBER",
                     style: TextStyle(
                       color: kPrimaryColor,
                       fontWeight: FontWeight.bold,
@@ -116,59 +142,42 @@ class _OtpPageState extends State<OtpPage> {
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      "We have sent a confirmation code to your\nabc@gmail.com",
-                      style: TextStyle(fontSize: 14, color: kPrimaryColor,fontWeight: FontWeight.bold,),
+                      "We have sent a 6-digit confirmation code to your phone.",
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: kPrimaryColor,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 24),
-
-                  // code input
-                  Container(
-                    width: double.infinity,
-                    height: 53,
-                    decoration: BoxDecoration(
-                      color: kBeigeColor,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: shadowColor.withAlpha((0.4 * 255).toInt()),
-                          blurRadius: 6,
-                          spreadRadius: 4,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      border: Border.all(color: kPrimaryColor, width: 3),
+                  PinFieldAutoFill(
+                    controller: _codeController,
+                    codeLength: 6,
+                    autoFocus: true,
+                    decoration: BoxLooseDecoration(
+                      // ✨ FIX: Replaced deprecated 'PinListenForDoneSource' with 'FixedColorBuilder'.
+                      // This is the correct way to set a static color in the current version of the package.
+                      strokeColorBuilder: FixedColorBuilder(kPrimaryColor),
+                      bgColorBuilder: FixedColorBuilder(kBeigeColor),
+                      textStyle: const TextStyle(
+                          fontSize: 20,
+                          color: kPrimaryColor,
+                          fontWeight: FontWeight.bold),
                     ),
-                    child: TextField(
-                      controller: _codeController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: "Enter Code",
-                        hintStyle: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
-                        contentPadding: EdgeInsets.symmetric(
-                            vertical: 14, horizontal: 20),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      "00:${secondsLeft.toString().padLeft(2, '0')}",
-                      style: TextStyle(color: kPrimaryColor,fontWeight: FontWeight.bold,),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomePage()),
-                      );
+                    onCodeChanged: (code) {
+                      if (code != null && code.length == 6) {
+                        FocusScope.of(context).requestFocus(FocusNode());
+                      }
                     },
+                    onCodeSubmitted: (code) {
+                      _verifyOtp(code);
+                    },
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => _verifyOtp(_codeController.text),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kGreenColor,
                       shape: const StadiumBorder(),
@@ -177,13 +186,31 @@ class _OtpPageState extends State<OtpPage> {
                       elevation: 7,
                       shadowColor: Colors.black,
                     ),
-                    child: const Text("Let's Revive",style: TextStyle(fontSize: 15 ,color: kBeigeColor),),
+                    child: _isLoading
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                          AlwaysStoppedAnimation<Color>(kBeigeColor)),
+                    )
+                        : const Text(
+                      "Verify & Continue",
+                      style: TextStyle(fontSize: 15, color: kBeigeColor),
+                    ),
                   ),
-
                   const SizedBox(height: 16),
-                  TextButton(onPressed: () {}, child: const Text("Resend Code",style: TextStyle(color: kPrimaryColor,fontWeight: FontWeight.bold,),)),
-                  TextButton(onPressed: () {}, child: const Text("Need Help?",style: TextStyle(color: kPrimaryColor,fontWeight: FontWeight.bold,),)),
-                  TextButton(onPressed: () {}, child: const Text("Change email address",style: TextStyle(color: kPrimaryColor,fontWeight: FontWeight.bold,),)),
+                  TextButton(
+                      onPressed: () {
+                        _showSnackBar(
+                            "Resend code feature not implemented yet.");
+                      },
+                      child: const Text(
+                        "Resend Code",
+                        style: TextStyle(
+                            color: kPrimaryColor, fontWeight: FontWeight.bold),
+                      )),
                 ],
               ),
             ),
@@ -193,3 +220,4 @@ class _OtpPageState extends State<OtpPage> {
     );
   }
 }
+

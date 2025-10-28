@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "967064516173-4fjk27ea55hjlhm80iu9q22m0fpbjmlg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.revive_eco_tech_app.revive_eco_tech_app",
+            "certificate_hash": "5d320754e2e95471648294fbe8dafeb3d1738fe8"
+          }
+        },
+        {
           "client_id": "967064516173-5mn50nkcsptr2dlutfp3e31itum9h70u.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
