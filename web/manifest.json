@@ -1,12 +1,12 @@
 {
-    "name": "revive_eco_tech_app",
-    "short_name": "revive_eco_tech_app",
-    "start_url": ".",
+    "name": "Revive Eco Tech",
+    "short_name": "Revive Eco",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#FCF3E3",
+    "theme_color": "#013D5A",
+    "description": "Revive Eco Tech: Bridging the gap between waste producers and recyclers through a seamless digital ecosystem for efficient scrap collection and environmental impact tracking.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

@@ -19,7 +19,7 @@ class BannerModel {
     Map data = doc.data() as Map<String, dynamic>;
     return BannerModel(
       id: doc.id,
-      imageUrl: data['imageUrl'] ?? 'assets/images/home/14.png',
+      imageUrl: data['imageUrl'] ?? 'assets/images/home/15.png',
       order: data['order'] ?? 99,
       // Add defaults for the new fields
       linkType: data['linkType'] ?? 'NONE',
