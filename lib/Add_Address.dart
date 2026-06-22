@@ -102,73 +102,117 @@ class _AddAddressState extends State<AddAddress> {
   // ==== Map Logic ====
 
   Future<void> _getCurrentLocation() async {
-    try {
-      Position position = await _determinePosition();
-      final latLng = LatLng(position.latitude, position.longitude);
+  try {
+    Position position = await _determinePosition();
 
-      googleMapController.animateCamera(CameraUpdate.newLatLngZoom(latLng, 17));
-      setState(() => _mapCenter = latLng);
-      _fetchAddressFromLatLng(latLng);
-    } catch (e) {
-      // Quietly fail or log, don't spam snackbar on init
-      print("Location Error: $e");
-    }
-  }
+    final latLng = LatLng(
+      position.latitude,
+      position.longitude,
+    );
 
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) throw Exception('Location services are disabled.');
+    googleMapController.animateCamera(
+      CameraUpdate.newLatLngZoom(latLng, 17),
+    );
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) throw Exception('Location permissions are denied.');
-    }
-    return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-  }
-
-  void _onCameraMove(CameraPosition position) {
-    _mapCenter = position.target;
-    // Reset timer
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-
-    // Wait 600ms after movement stops before fetching address
-    _debounceTimer = Timer(const Duration(milliseconds: 600), () {
-      _fetchAddressFromLatLng(_mapCenter!);
-    });
-  }
-
-  Future<void> _fetchAddressFromLatLng(LatLng position) async {
-    if (!mounted) return;
     setState(() {
-      _isLoadingAddress = true;
-      _sAddress = "Fetching address...";
+      _mapCenter = latLng;
     });
 
-    try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude, position.longitude);
+    _fetchAddressFromLatLng(latLng);
+  } catch (e) {
+    print("Location Error: $e");
+  }
+}
 
-      if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        String address = [
-          place.street,
-          place.subLocality,
-          place.locality,
-          place.postalCode,
-          place.administrativeArea
-        ].where((e) => e != null && e.isNotEmpty).toSet().join(', ');
+Future<Position> _determinePosition() async {
+  bool serviceEnabled =
+      await Geolocator.isLocationServiceEnabled();
 
-        setState(() => _sAddress = address);
-      } else {
-        setState(() => _sAddress = "Unknown Location");
-      }
-    } catch (e) {
-      setState(() => _sAddress = "Could not fetch address");
-    } finally {
-      if (mounted) setState(() => _isLoadingAddress = false);
+  if (!serviceEnabled) {
+    throw Exception('Location services are disabled.');
+  }
+
+  LocationPermission permission =
+      await Geolocator.checkPermission();
+
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+
+    if (permission == LocationPermission.denied) {
+      throw Exception('Location permissions are denied.');
     }
   }
+
+  return await Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.high,
+  );
+}
+
+void _onCameraMove(CameraPosition position) {
+  _mapCenter = position.target;
+
+  if (_debounceTimer?.isActive ?? false) {
+    _debounceTimer!.cancel();
+  }
+
+  _debounceTimer =
+      Timer(const Duration(milliseconds: 600), () {
+    if (_mapCenter != null) {
+      _fetchAddressFromLatLng(_mapCenter!);
+    }
+  });
+}
+
+Future<void> _fetchAddressFromLatLng(LatLng position) async {
+  if (!mounted) return;
+
+  setState(() {
+    _isLoadingAddress = true;
+    _sAddress = "Fetching address...";
+  });
+
+  try {
+    final placemarks = await placemarkFromCoordinates(
+      position.latitude,
+      position.longitude,
+    );
+
+    if (placemarks.isNotEmpty) {
+      final place = placemarks.first;
+
+      final address = [
+        place.street ?? '',
+        place.subLocality ?? '',
+        place.locality ?? '',
+        place.postalCode ?? '',
+        place.administrativeArea ?? '',
+      ].where((e) => e.trim().isNotEmpty).join(', ');
+
+      setState(() {
+        _sAddress =
+            address.isNotEmpty ? address : "Location Selected";
+      });
+    } else {
+      setState(() {
+        _sAddress =
+            "${position.latitude}, ${position.longitude}";
+      });
+    }
+  } catch (e) {
+    print("ADDRESS ERROR: $e");
+
+    setState(() {
+      _sAddress =
+          "${position.latitude}, ${position.longitude}";
+    });
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoadingAddress = false;
+      });
+    }
+  }
+}
 
   // ==== Save Logic ====
 
@@ -329,19 +373,44 @@ class _AddAddressState extends State<AddAddress> {
                 debounceTime: 500,
                 isLatLngRequired: true,
                 getPlaceDetailWithLatLng: (Prediction prediction) {
-                  if (prediction.lat != null && prediction.lng != null) {
-                    final lat = double.parse(prediction.lat!);
-                    final lng = double.parse(prediction.lng!);
-                    final newPos = LatLng(lat, lng);
 
-                    googleMapController.animateCamera(CameraUpdate.newLatLngZoom(newPos, 17));
-                    setState(() => _mapCenter = newPos);
-                    _fetchAddressFromLatLng(newPos);
+  print("========== SEARCH DEBUG ==========");
+  print("PLACE: ${prediction.description}");
+  print("LAT: ${prediction.lat}");
+  print("LNG: ${prediction.lng}");
+  print("==================================");
 
-                    _searchController.clear();
-                    FocusScope.of(context).unfocus();
-                  }
-                },
+  if (prediction.lat != null &&
+      prediction.lng != null) {
+
+    final lat =
+        double.parse(prediction.lat!);
+
+    final lng =
+        double.parse(prediction.lng!);
+
+    final newPos = LatLng(lat, lng);
+
+    googleMapController.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        newPos,
+        17,
+      ),
+    );
+
+    setState(() {
+      _mapCenter = newPos;
+      _sAddress =
+          prediction.description ??
+          "Location Selected";
+    });
+
+    _searchController.clear();
+    FocusScope.of(context).unfocus();
+  } else {
+    print("LAT LNG IS NULL");
+  }
+},
                 itemClick: (Prediction prediction) {
                   _searchController.text = prediction.description ?? "";
                   _searchController.selection = TextSelection.fromPosition(TextPosition(offset: _searchController.text.length));

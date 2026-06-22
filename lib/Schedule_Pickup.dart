@@ -77,6 +77,9 @@ class _SchedulePickupState extends State<SchedulePickup> {
   DateTime selectedPickupDate =
     DateTime.now();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController
+    _contactNumberController =
+        TextEditingController();
 
   // Address State
   List<DocumentSnapshot> _addresses = [];
@@ -226,19 +229,22 @@ for (String slot in slots) {
       _selectedTimeSlot = slot;
     });
   }
+@override
+void initState() {
+  super.initState();
+  _isEditMode = widget.pickupId != null;
 
-  @override
-  void initState() {
-    super.initState();
-    _isEditMode = widget.pickupId != null;
-    _fetchAddresses();
-    _fetchPriceList().then((_) {
-      if (_isEditMode && widget.pickupId != null) {
-        _loadPickupData(widget.pickupId!);
-      }
-    });
-  }
+  _fetchAddresses();
 
+  _loadUserPhone();
+
+  _fetchPriceList().then((_) {
+    if (_isEditMode &&
+        widget.pickupId != null) {
+      _loadPickupData(widget.pickupId!);
+    }
+  });
+}
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -273,6 +279,24 @@ for (String slot in slots) {
       }
     }
   }
+  Future<void> _loadUserPhone() async {
+
+  final user =
+      FirebaseAuth.instance.currentUser;
+
+  if (user == null) return;
+
+  final doc =
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+  if (doc.exists) {
+    _contactNumberController.text =
+        doc.data()?['phone'] ?? '';
+  }
+}
 
   Future<void> _fetchPriceList() async {
     if (mounted) setState(() => _isLoadingPrices = true);
@@ -691,7 +715,7 @@ final customerPhone =
           'userId': user.uid,
           'customerName': customerName,
 
-'customerPhone': customerPhone,
+'customerPhone': _contactNumberController.text.trim(),
           'addressId': _selectedAddress!.id,
           'addressDetails': addressData,
           'pickupDate': Timestamp.fromDate(pickupDate),
@@ -1013,6 +1037,24 @@ switch (categoryName) {
               }).toList(),
             ),
           ),
+          // ==== Contact Number ====
+_buildSection(
+  icon: Icons.phone,
+  title: "Contact Number",
+  child: TextField(
+    controller: _contactNumberController,
+    keyboardType: TextInputType.phone,
+    decoration: InputDecoration(
+      hintText: "Enter contact number",
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    ),
+  ),
+),
 
           // ==== Pickup Summary ====
           _buildSection(
